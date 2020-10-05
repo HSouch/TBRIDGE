@@ -22,10 +22,12 @@ class Bin:
             if len(this_bin) <= number_threshold:
                 continue
 
-            new_bin = Bin(objects=this_bin, bin_params=append(copy(top_level_params), (low, low + bin_width)))
+            new_bin = Bin(objects=this_bin, object_column_names=self.object_column_names,
+                          bin_params=append(copy(top_level_params), (low, low + bin_width)))
             new_bins.append(new_bin)
 
         return new_bins
+
 
 
 def generate_objects(params):
@@ -67,7 +69,8 @@ def bin_catalog(catalog_filename, config_values):
     sfprob_bins, sfprob_step = config_values["SFPROB_BINS"], config_values["SFPROB_STEP"]
 
     catalog_objects = generate_objects((mags, r50s, ns, ellips, masses, redshifts, sfprobs))
-    init_bin = Bin(objects=catalog_objects, bin_params=[])
+    column_names = ["MAGS", "R50S", "NS", "ELLIPS", "MASSES", "REDSHIFTS", "SFPROBS"]
+    init_bin = Bin(objects=catalog_objects, object_column_names=column_names, bin_params=[])
 
     mass_bins = init_bin.rebin(4, mass_bins, mass_step)
     mz_bins, full_bins = [], []
