@@ -29,8 +29,11 @@ def load_config_file(filename, verbose_test=False):
             continue
 
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
+        """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
         value_string = config_values[n].split(",")
         bin_output = arange(float(value_string[0]), float(value_string[1]), float(value_string[2]))
+
+        config_values[n] = bin_output
         config_values[n.split("_")[0] + "_STEP"] = float(value_string[2])
 
     if verbose_test:
