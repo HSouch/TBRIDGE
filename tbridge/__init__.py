@@ -1,7 +1,7 @@
 
-from . import extraction
-from . import modelling
-from . import data
-from . import sims
-from . import config
-
+from .extraction import *
+from . modelling import *
+from .data import *
+from .sims import *
+from .config import *
+from .binning import *
