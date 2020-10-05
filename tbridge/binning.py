@@ -11,6 +11,15 @@ class Bin:
         self.bin_params = bin_params
 
     def rebin(self, param_index, low_bounds, bin_width, number_threshold=4):
+        """
+        Returns a list of Bin objects after re-binning based on a certain value and bin parameters.
+        Bins specified by the lower bounds and bin width.
+        :param param_index: Which index in the objects contains the desired value.
+        :param low_bounds: Lower bounds on the bins.
+        :param bin_width: The width of the bins.
+        :param number_threshold: The required number of objects a bin needs to have to be saved to the list.
+        :return: List of re-binned Bin objects.
+        """
         new_bins = []
         top_level_params = self.bin_params
         for low in low_bounds:
@@ -28,6 +37,25 @@ class Bin:
 
         return new_bins
 
+    def return_columns(self):
+        """
+        Returns a dictionary of columns (turns the object list back into a column format)
+        """
+        columns = []
+        for i in range(0, len(self.object_column_names)):
+            columns.append([])
+        for obj in self.objects:
+            for i in range(0, len(obj)):
+                columns[i].append(obj[i])
+
+        out = {}
+        for i in range(0, len(self.object_column_names)):
+            out[self.object_column_names[i]] = columns[i]
+        return out
+
+    def index_from_key(self, key=""):
+        """ Return the index of the column name key specified."""
+        return self.object_column_names.index(key)
 
 
 def generate_objects(params):
