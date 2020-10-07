@@ -41,17 +41,14 @@ class Bin:
         """
         Returns a dictionary of columns (turns the object list back into a column format)
         """
+        keys = copy(self.object_column_names)
         columns = []
-        for i in range(0, len(self.object_column_names)):
+        for i in range(0, len(keys)):
             columns.append([])
-        for obj in self.objects:
-            for i in range(0, len(obj)):
-                columns[i].append(obj[i])
+            for j in range(0, len(self.objects)):
+                columns[i].append(self.objects[j][i])
 
-        out = {}
-        for i in range(0, len(self.object_column_names)):
-            out[self.object_column_names[i]] = columns[i]
-        return out
+        return keys, columns
 
     def index_from_key(self, key=""):
         """ Return the index of the column name key specified."""
