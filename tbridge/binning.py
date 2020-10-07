@@ -48,7 +48,7 @@ class Bin:
             for j in range(0, len(self.objects)):
                 columns[i].append(self.objects[j][i])
 
-        return keys, columns
+        return list(keys), columns
 
     def index_from_key(self, key=""):
         """ Return the index of the column name key specified."""
