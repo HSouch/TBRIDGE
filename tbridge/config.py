@@ -30,6 +30,7 @@ def load_config_file(filename, verbose_test=False):
 
     config_values["SIZE"] = int(config_values["SIZE"])
     config_values["CORES"] = int(config_values["CORES"])
+    config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
 
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
@@ -55,6 +56,7 @@ def dump_default_config_file(directory):
     lines = ["# This is the catalog you retrieve object parameters for.",
              "CATALOG             = cat.fits",
              "IMAGE_DIRECTORY     = images/",
+             "PSF_FILENAME        = i_psfs.fits",
              "",
              "# Keys for masses, redshifts, and star-formation probability. These are currently required.",
              "MASS_KEY            = MASSES",
@@ -71,6 +73,7 @@ def dump_default_config_file(directory):
              "SIZE                = 100",
              "BAND                = i",
              "CORES               = 4",
+             "ARC_CONV             = 0.2",
              "",
              "# Bins to run through. (LOWER BOUND, UPPER BOUND, BIN WIDTH)",
              "# Note that the bins are defined by the LOWER BOUND to LOWER BOUND + BIN WIDTH",
