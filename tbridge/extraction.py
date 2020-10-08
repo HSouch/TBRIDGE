@@ -5,7 +5,6 @@ from photutils import data_properties
 from photutils.isophote import Ellipse, EllipseGeometry
 
 from tqdm import tqdm
-from tqdm.auto import trange
 
 
 def isophote_fitting(data: ndarray, linear=True):
