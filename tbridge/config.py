@@ -57,6 +57,7 @@ def dump_default_config_file(directory):
              "CATALOG             = cat.fits",
              "IMAGE_DIRECTORY     = images/",
              "PSF_FILENAME        = i_psfs.fits",
+             "OUT_DIR              = out/",
              "",
              "# Keys for masses, redshifts, and star-formation probability. These are currently required.",
              "MASS_KEY            = MASSES",
