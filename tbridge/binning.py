@@ -1,5 +1,5 @@
 from astropy.table import Table
-from numpy import array, copy, append, round
+from numpy import array, copy, append, round, reshape
 
 
 class Bin:
@@ -58,6 +58,23 @@ class Bin:
     def index_from_key(self, key=""):
         """ Return the index of the column name key specified."""
         return self.object_column_names.index(key)
+
+    def values_in_bin(self, values):
+        """
+        Returns a boolean whether of not a set of values is within the bin.
+        :param values: A list of values.
+        :return:
+        """
+        reshaped_values = reshape(self.bin_params, newshape=(int(len(self.bin_params) / 2), 2))
+        good_count = 0
+        for i in range(0, len(values)):
+            if reshaped_values[i][0] < values[i] < reshaped_values[i][1]:
+                good_count += 1
+
+        if good_count == len(values):
+            return True
+        else:
+            return False
 
 
 def generate_objects(params):
