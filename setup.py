@@ -7,7 +7,7 @@ with open("README.md", "r") as readme:
 
 setuptools.setup(
     name="TBRIDGE-HSouch", # Replace with your own username
-    version="0.0.1",
+    version="1.0.0",
     author="Harrison Souchereau",
     author_email="harrison.souchereau@yale.edu",
     description="Testing BRIghtness Deviations in Galaxy profile Extractions",
