@@ -5,3 +5,5 @@ from .data import *
 from .sims import *
 from .config import *
 from .binning import *
+
+from . import plotting
