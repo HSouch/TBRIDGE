@@ -4,6 +4,9 @@ from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
 from photutils.isophote import Ellipse, EllipseGeometry
 
+from tqdm import tqdm
+from tqdm.auto import trange
+
 
 def isophote_fitting(data: ndarray, linear=True):
     """
@@ -79,3 +82,42 @@ def isophote_fitting(data: ndarray, linear=True):
             return []
 
     return fitting_list
+
+
+def extract_profiles(cutout_list, progress_bar=False, linear=True):
+    """
+    Extract all available profiles
+    :param cutout_list: A 2D list of cutouts. The length of each column needs to be the same!
+    :param progress_bar: Include a fancy progress bar with tqdm if set to True
+    :param linear: Run the isophote fitting in linear mode
+    :return:
+    """
+
+    output_profiles = []
+    for i in cutout_list:
+        output_profiles.append([])
+
+    def run_model(index):
+        # Iterate through each available object
+        local_profiles = []
+        for j in range(0, len(cutout_list)):
+
+            t = isophote_fitting(cutout_list[j][index], linear=linear)
+
+            if len(t) > 0:
+                local_profiles.append(t.to_table())
+            # print(i, j, len(t))
+        # If we extracted a profile of the model in each instance, save it
+        if len(local_profiles) == len(cutout_list):
+            for k in range(0, len(cutout_list)):
+                output_profiles[k].append(local_profiles[k])
+
+    # Iterate through each available object
+    if progress_bar:
+        for i in tqdm(range(0, len(cutout_list[0])), desc="Object"):
+            run_model(i)
+    else:
+        for i in range(0, len(cutout_list[0])):
+            run_model(i)
+
+    return output_profiles
