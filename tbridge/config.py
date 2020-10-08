@@ -28,6 +28,9 @@ def load_config_file(filename, verbose_test=False):
             config_values[n] = False
             continue
 
+    config_values["SIZE"] = int(config_values["SIZE"])
+    config_values["CORES"] = int(config_values["CORES"])
+
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
         value_string = config_values[n].split(",")
