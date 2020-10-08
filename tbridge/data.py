@@ -3,8 +3,10 @@ from pathlib import Path
 
 from astropy.io import fits
 from astropy.wcs import wcs
+from astropy.table import Table
+
 from numpy import arange, array, sqrt, str
-from numpy.random import choice, randint, uniform
+from numpy.random import choice, uniform
 
 
 def get_closest_psf(psfs: fits.HDUList, obj_ra: float, obj_dec: float):
@@ -171,3 +173,76 @@ def generate_output_report(outdir="", t_final=0., t_init=0., catalog_filename=""
     lines.append("\n")
     lines.append("Catalog: " + str(catalog_filename) + "\n")
     output_report.writelines(lines)
+
+
+def save_profiles(profile_list, bin_info, outdir, keys):
+    """
+    Saves a set of profiles into a properly formatted output directory, with proper filename format.
+    :param profile_list: The list of profiles (shape is m x n, where m is the number of different models for each
+    object and n is the number of objects i.e. m rows of profiles from n objects.
+    :param bin_info: bin information for profile formatting.
+    :param outdir: the output directory to save the files to.
+    :param keys: the keys to generate subdirectory and file names with.
+    :return:
+    """
+    def generate_file_prefix(bin_params):
+        prefix = "bin_"
+        for j in range(0, len(bin_params)):
+            if (j + 1) % 2 != 0:
+                prefix += str(bin_params[j]) + "-"
+            else:
+                prefix += str(bin_params[j]) + "_"
+        return prefix
+
+    # Generate output structure
+    subdirs = []
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
+    for key in keys:
+        subdir = key + "_profiles/"
+        if not os.path.isdir(outdir + subdir):
+            os.mkdir(outdir + subdir)
+        subdirs.append(subdir)
+
+    filename_prefix = generate_file_prefix(bin_info)
+    valid_colnames = ["sma", "intens", "intens_err", "ellipticity", "ellipticity_err", "pa", "pa_err"]
+
+    # Save profiles as FITS HDULists in the proper directories
+    for i in range(0, len(profile_list)):
+        profiles = profile_list[i]
+        out_filename = filename_prefix + keys[i] + ".fits"
+        out_hdulist = fits.HDUList()
+        for prof in profiles:
+            out_hdulist.append(fits.BinTableHDU(Table([prof[col] for col in valid_colnames],
+                                   names=valid_colnames)))
+
+        out_hdulist.writeto(outdir + subdirs[i] + out_filename, overwrite=True)
+
+    return None
+
+
+def save_cutouts(cutouts, output_filename="cutouts.fits"):
+    """ Save a set of cutouts to a fits HDUList object """
+    out_hdulist = fits.HDUList()
+
+    for cutout in cutouts:
+        out_hdulist.append(fits.ImageHDU(data=cutout))
+
+    out_hdulist.writeto(output_filename, overwrite=True)
+
+
+def cutouts_from_file(filename):
+    """ Load in a list of cutouts from a given filename (will try all hdus in the HDUList)"""
+    cutouts = []
+    HDUList = fits.open(filename)
+    for n in HDUList:
+        try:
+            image = n.data
+            if image.shape[0] > 0 and image.shape[1] > 0:
+                cutouts.append(image)
+        except:
+            continue
+
+    HDUList.close()
+
+    return cutouts
