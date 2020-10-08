@@ -1,5 +1,4 @@
 import tbridge
-
 from numpy import arange
 from numpy.random import uniform
 
@@ -29,5 +28,8 @@ def test_binning():
         binned_3.extend(b.rebin(b.index_from_key("COL_3"), bins_3, bin_width=step_3))
     print("Should return 48:", len(binned_3))
 
+    for n in binned_3:
+        print(len(n.objects), n.bin_params)
 
-# test_binning()
+
+test_binning()
