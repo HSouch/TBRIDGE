@@ -1,9 +1,14 @@
 from astropy.table import Table
-from numpy import array, copy, append
+from numpy import array, copy, append, round
 
 
 class Bin:
     def __init__(self, objects=None, object_column_names=None, bin_params=None):
+        """
+        :param objects: The objects contained in the bin.
+        :param object_column_names: The column names when the objects are sorted column-wise instead of row-wise.
+        :param bin_params: The bin widths.
+        """
         if bin_params is None:
             bin_params = []
         self.objects = objects
@@ -32,7 +37,7 @@ class Bin:
                 continue
 
             new_bin = Bin(objects=this_bin, object_column_names=self.object_column_names,
-                          bin_params=append(copy(top_level_params), (low, low + bin_width)))
+                          bin_params=append(copy(top_level_params), (round(low, 2), round(low + bin_width, 2))))
             new_bins.append(new_bin)
 
         return new_bins
