@@ -121,7 +121,6 @@ def load_positions(location_table, n=100, ra_key="RA", dec_key="DEC", img_filena
 
 def select_image(filename):
     image, HDUList = None, fits.open(filename)
-
     for i in range(0, 100):
         try:
             index = randint(0, len(HDUList))
@@ -129,7 +128,6 @@ def select_image(filename):
             if image.shape[0] > 0 and image.shape[1] > 0:
                 break
         except:
-            print("Error in retrieving this image")
             continue
     HDUList.close()
 
