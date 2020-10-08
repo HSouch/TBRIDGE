@@ -1,26 +1,16 @@
-import tbridge
-from numpy import pi, exp, mgrid
-from scipy.special import gamma
-from .binning import Bin
-import os, time, warnings, argparse
-from pathlib import Path
-import multiprocessing as mp
 from astropy.io import fits
 from astropy.modeling.models import Sersic2D
-from astropy.wcs import wcs
-from astropy.convolution import Gaussian2DKernel
-from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
-from astropy.table import Table
-from numpy import unravel_index, argmax, mgrid, floor, ceil, copy, str
-from numpy import array, ndarray, log, exp, isnan, sum, sqrt
-from numpy import arange, median, mean, max, copy, pi, round
+
+from numpy import exp, isnan, mgrid, ceil, pi
 from numpy.random import choice, randint, uniform
-from photutils import detect_threshold, detect_sources, deblend_sources, data_properties, make_source_mask
+
 from photutils.datasets import make_noise_image
 
-from scipy.stats import gaussian_kde
-from scipy.special import gamma
 from scipy.signal import convolve2d
+from scipy.special import gamma
+from scipy.stats import gaussian_kde
+
+import tbridge
 
 
 def b(n):
