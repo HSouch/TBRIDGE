@@ -12,7 +12,7 @@ from photutils.isophote import Ellipse, EllipseGeometry
 from scipy.special import gamma
 
 
-def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=5):
+def mask_image(cutout, nsigma=1., gauss_width=2.0, npixels=5):
     """ Masks a cutout using segmentation and deblending using watershed"""
     mask_data = {}
 
@@ -101,5 +101,12 @@ def estimate_background(cutout):
     return median(super_pixel_medians), median(super_pixel_rms_vals)
 
 
+def mask_cutouts(cutouts):
+    masked_cutouts = []
 
+    for cutout in cutouts:
+        masked, mask_data = mask_image(cutout)
+        masked_cutouts.append(masked)
+
+    return masked_cutouts
 
