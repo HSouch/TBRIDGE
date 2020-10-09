@@ -77,6 +77,13 @@ class Bin:
             return False
 
 
+def select_bin(bin_list, values):
+    for b in bin_list:
+        if b.values_in_bin(values):
+            return b
+    return None
+
+
 def generate_objects(params):
     """
     Reorganizes the table columns into an object-format
