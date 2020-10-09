@@ -1,4 +1,4 @@
-from numpy import ceil, sqrt
+from numpy import ceil, sqrt, log
 from matplotlib import pyplot as plt
 
 
@@ -21,7 +21,7 @@ def view_cutouts(cutouts, output="", dpi=150, show_index=False):
             ax[x][y].set_yticks([])
             try:
                 image = cutouts[index]
-                ax[x][y].imshow(image, cmap="magma_r")
+                ax[x][y].imshow(log(image), cmap="magma_r")
                 if show_index:
                     ax[x][y].text(5, 0, str(index), color="red", **{'fontname': 'Helvetica'}, fontweight="bold",
                                   fontsize=10, alpha=0.7)
