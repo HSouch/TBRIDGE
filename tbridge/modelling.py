@@ -149,6 +149,29 @@ def add_to_locations_simple(models, config_values):
     return convolved_models, bg_added_models
 
 
+def convolve_models(models, config_values):
+    """ Convolve a set of models with a random selection of inputted PSFs"""
+    psf_filename = config_values["PSF_FILENAME"]
+    psfs = fits.open(psf_filename)
+    convolved_models = []
+    for model in models:
+        index = randint(0, len(psfs))
+        convolved_models.append(convolve2d(model, psfs[index].data, mode='same'))
+    psfs.close()
+
+    return convolved_models
+
+
+def add_to_provided_backgrounds(models, backgrounds):
+    bgadded_models = []
+
+    for model in models:
+        index = randint(0, len(backgrounds))
+        bgadded_models.append(model + backgrounds[index])
+
+    return bgadded_models
+
+
 def add_to_noise(models, bg_mean=0., bg_std=0.025):
     """
     Returns the models added to Gaussian noise with user-defined mean and standard deviation
