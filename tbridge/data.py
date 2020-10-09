@@ -246,3 +246,26 @@ def cutouts_from_file(filename):
     HDUList.close()
 
     return cutouts
+
+
+def trim_hdulist(input_filename, indices, output_filename="out.fits"):
+    """
+    Trims an HDUList based on a set of user-provided indices
+    :param input_filename:
+    :param indices:
+    :param output_filename:
+    :return: HDUList of size <= len(indices)
+
+    USAGE
+    indices = [1, 4, 5, 8, 9, 10]
+    trim_hdulist("input.fits", indices, output_filename="output.fits")
+    """
+
+    HDUList = fits.open(input_filename)
+    out_hdulist = fits.HDUList()
+    print(len(HDUList))
+    for n in range(0, len(HDUList)):
+        if n in indices:
+            out_hdulist.append(HDUList[n])
+
+    out_hdulist.writeto(output_filename, overwrite=True)
