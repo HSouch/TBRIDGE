@@ -157,16 +157,16 @@ def generate_output_structure(outdir):
     return bare_profile_outdir, bgadded_profile_outdir, noisy_outdir, localsub_outdir, psf_outdir
 
 
-def generate_output_report(outdir="", t_final=0., t_init=0., catalog_filename=""):
+def generate_output_report(out_dir="", t_final=0., t_init=0., catalog_filename=""):
     """
     Generates an output report to the user's specifications.
-    :param outdir:
+    :param out_dir:
     :param t_final:
     :param t_init:
     :param catalog_filename:
     :return:
     """
-    output_report = open(outdir + "output_log.txt", "w")
+    output_report = open(out_dir + "output_log.txt", "w")
     lines = []
     lines.append("Time (seconds): " + str(t_final - t_init) + "\n")
     lines.append("Time (minutes): " + str((t_final - t_init) / 60) + "\n")
@@ -289,3 +289,11 @@ def tables_from_file(filename):
     HDUList.close()
 
     return tables
+
+
+def bin_index(val, bins):
+    """ Get bin index for a given value and a set of bin parameters """
+    for index in range(0, len(bins)):
+        if val < bins[index]:
+            return index
+    return len(bins)
