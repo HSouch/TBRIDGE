@@ -5,5 +5,6 @@ from .data import *
 from .config import *
 from .binning import *
 from .masking import *
+from .medians import *
 
 from . import plotting
