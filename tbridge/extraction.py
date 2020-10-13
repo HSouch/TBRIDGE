@@ -3,8 +3,14 @@ from numpy import ndarray, log
 from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
 from photutils.isophote import Ellipse, EllipseGeometry
+try:
+    from .isophote_l import Ellipse, EllipseGeometry
+except ImportError:
+    pass
 
 from tqdm import tqdm
+
+import warnings
 
 
 def isophote_fitting(data: ndarray, linear=True):
@@ -15,6 +21,8 @@ def isophote_fitting(data: ndarray, linear=True):
     :return:  The table of results, or an empty list if not fitted successfully.
     """
     # Set-up failsafe in case of strange infinte loops in photutils
+    warnings.filterwarnings("error")
+
     fail_count, max_fails = 0, 10
 
     # Get centre of image and cutout halfwidth
