@@ -109,42 +109,40 @@ def add_to_locations_simple(models, config_values):
 
     image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
 
-    psfs = fits.open(psf_filename)
-    image_filenames = tbridge.get_image_filenames(image_dir)
+    with fits.open(psf_filename) as psfs:
+        image_filenames = tbridge.get_image_filenames(image_dir)
 
-    convolved_models, bg_added_models = [], []
+        convolved_models, bg_added_models = [], []
 
-    for i in range(0, len(models)):
-        model_width = models[i].shape[0]
-        model_halfwidth = ceil(model_width / 2)
+        for i in range(0, len(models)):
+            model_width = models[i].shape[0]
+            model_halfwidth = ceil(model_width / 2)
 
-        image_filename = choice(image_filenames)
+            image_filename = choice(image_filenames)
 
-        image = tbridge.select_image(image_filename)
-        image_wcs = tbridge.get_wcs(image_filename)
+            image = tbridge.select_image(image_filename)
+            image_wcs = tbridge.get_wcs(image_filename)
 
-        if image is None:
-            continue
+            if image is None:
+                continue
 
-        c_x = randint(model_width, image.shape[0] - model_width)
-        c_y = randint(model_width, image.shape[1] - model_width)
-        x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
-        y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
+            c_x = randint(model_width, image.shape[0] - model_width)
+            c_y = randint(model_width, image.shape[1] - model_width)
+            x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
+            y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
 
-        image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
+            image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
 
-        ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
-        psf = tbridge.get_closest_psf(psfs, ra, dec).data
+            ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
+            psf = tbridge.get_closest_psf(psfs, ra, dec).data
 
-        # print(model_halfwidth, image.shape, type(image_wcs), c_x, c_y, psf.shape)
+            # print(model_halfwidth, image.shape, type(image_wcs), c_x, c_y, psf.shape)
 
-        convolved_model = convolve2d(models[i], psf, mode='same')
-        bg_added_model = convolved_model + image_cutout
+            convolved_model = convolve2d(models[i], psf, mode='same')
+            bg_added_model = convolved_model + image_cutout
 
-        convolved_models.append(convolved_model)
-        bg_added_models.append(bg_added_model)
-
-    psfs.close()
+            convolved_models.append(convolved_model)
+            bg_added_models.append(bg_added_model)
 
     return convolved_models, bg_added_models
 
