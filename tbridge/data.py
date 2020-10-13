@@ -269,3 +269,23 @@ def trim_hdulist(input_filename, indices, output_filename="out.fits"):
             out_hdulist.append(HDUList[n])
 
     out_hdulist.writeto(output_filename, overwrite=True)
+
+
+def tables_from_file(filename):
+    """
+    Load a set of tables from a given HDUList.
+    :param filename: filename to gather tables from.
+    :return:
+    """
+    tables = []
+
+    HDUList = fits.open(filename)
+    for n in HDUList:
+        try:
+            t = Table.read(n)
+            tables.append(t)
+        except:
+            continue
+    HDUList.close()
+
+    return tables
