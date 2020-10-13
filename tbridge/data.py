@@ -122,34 +122,33 @@ def load_positions(location_table, n=100, ra_key="RA", dec_key="DEC", img_filena
 
 
 def select_image(filename):
-    image, HDUList = None, fits.open(filename)
-    for i in range(0, len(HDUList)):
-        try:
-            image = HDUList[i].data
-            if image.shape[0] > 0 and image.shape[1] > 0:
-                break
-        except:
-            continue
-    HDUList.close()
-
+    with fits.open(filename) as HDUList:
+        image = None
+        for i in range(0, len(HDUList)):
+            try:
+                image = HDUList[i].data
+                if image.shape[0] > 0 and image.shape[1] > 0:
+                    break
+            except:
+                continue
     return image
 
 
-def generate_output_structure(outdir):
+def generate_output_structure(out_dir):
     """
     Generates the structure of the output filesystem, with outdir being the top-level directory.
-    :param outdir:
+    :param out_dir:
     :return:
     """
 
-    bare_profile_outdir = outdir + "bare_profiles/"
-    bgadded_profile_outdir = outdir + "bgadded_profiles/"
-    noisy_outdir = outdir + "noisy_profiles/"
-    psf_outdir = outdir + "psf_profiles/"
-    localsub_outdir = outdir + "localsub_profiles/"
+    bare_profile_outdir = out_dir + "bare_profiles/"
+    bgadded_profile_outdir = out_dir + "bgadded_profiles/"
+    noisy_outdir = out_dir + "noisy_profiles/"
+    psf_outdir = out_dir + "psf_profiles/"
+    localsub_outdir = out_dir + "localsub_profiles/"
 
-    if not os.path.isdir(outdir):
-        os.mkdir(outdir)
+    if not os.path.isdir(out_dir):
+        os.mkdir(out_dir)
     for directory in (bare_profile_outdir, bgadded_profile_outdir, noisy_outdir, psf_outdir, localsub_outdir):
         if not os.path.isdir(directory):
             os.mkdir(directory)
