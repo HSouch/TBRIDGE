@@ -21,9 +21,9 @@ def isophote_fitting(data: ndarray, linear=True):
     :return:  The table of results, or an empty list if not fitted successfully.
     """
     # Set-up failsafe in case of strange infinte loops in photutils
-    warnings.filterwarnings("error")
+    # warnings.filterwarnings("error")
 
-    fail_count, max_fails = 0, 10
+    fail_count, max_fails = 0, 10000
 
     # Get centre of image and cutout halfwidth
     centre = unravel_index(argmax(data), data.shape)
@@ -110,10 +110,9 @@ def extract_profiles(cutout_list, progress_bar=False, linear=True):
         for j in range(0, len(cutout_list)):
 
             t = isophote_fitting(cutout_list[j][index], linear=linear)
-
             if len(t) > 0:
                 local_profiles.append(t.to_table())
-            # print(i, j, len(t))
+
         # If we extracted a profile of the model in each instance, save it
         if len(local_profiles) == len(cutout_list):
             for k in range(0, len(cutout_list)):
