@@ -31,6 +31,7 @@ def load_config_file(filename, verbose_test=False):
     config_values["SIZE"] = int(config_values["SIZE"])
     config_values["CORES"] = int(config_values["CORES"])
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
+    config_values["N_MODELS"] = int(config_values["N_MODELS"])
 
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
@@ -53,7 +54,7 @@ def dump_default_config_file(directory):
     :param directory:
     :return:
     """
-    lines = ["# This is the catalog you retrieve object parameters for.",
+    lines = ["# Directories and filenames -- Input and output",
              "CATALOG             = cat.fits",
              "IMAGE_DIRECTORY     = images/",
              "PSF_FILENAME        = i_psfs.fits",
@@ -70,11 +71,12 @@ def dump_default_config_file(directory):
              "N_KEY               = SERSIC_NS",
              "ELLIP_KEY           = ELLIPS",
              "",
-             "# Cutout size, band, cores to run on",
+             "# Cutout size, band, number of cores to run on, arcseconds per pixel, and number of models to generate",
              "SIZE                = 100",
              "BAND                = i",
              "CORES               = 4",
              "ARC_CONV             = 0.2",
+             "N_MODELS            = 100",
              "",
              "# Bins to run through. (LOWER BOUND, UPPER BOUND, BIN WIDTH)",
              "# Note that the bins are defined by the LOWER BOUND to LOWER BOUND + BIN WIDTH",
