@@ -6,8 +6,8 @@ import warnings
 def pipeline(config_values, max_bins=None, separate_mags=None):
     """
     Runs the entire simulation pipeline assuming certain data exists.
-    :param config_values: Values from properly loaded configuration file
-    :param max_bins: The number of bins to process (useful if running tests)
+    :param config_values: Values from properly loaded configuration file.
+    :param max_bins: The number of bins to process (useful if running tests).
     :param separate_mags: Optional array of magnitudes.
 
     EXAMPLE USAGE:
@@ -18,13 +18,23 @@ def pipeline(config_values, max_bins=None, separate_mags=None):
     """
 
     binned_objects = tbridge.bin_catalog(config_values["CATALOG"], config_values)
+    max_bins = len(binned_objects) if max_bins is None else max_bins
 
     pool = mp.Pool(processes=config_values["CORES"])
-    results = [pool.apply_async(process_bin, (b, config_values, separate_mags)) for b in binned_objects[:]]
+    results = [pool.apply_async(process_bin, (b, config_values, separate_mags))
+               for b in binned_objects[:max_bins]]
     [res.get() for res in results]
 
 
-def process_bin(b, config_values, separate_mags):
+def process_bin(b, config_values, separate_mags=None):
+    """
+    Process a single bin of galaxies. (Tuned for pipeline usage but can be used on an individual basis.
+    :param b: Bin to obtain full profiles from.
+    :param config_values: Values from properly loaded configuration file.
+    :param separate_mags: Optional array of magnitudes.
+    :return:
+    """
+
     # Load in information
     keys, columns = b.return_columns()
     mags, r50s, ns, ellips = tbridge.pdf_resample(tbridge.structural_parameters(keys, columns), resample_size=1000)
