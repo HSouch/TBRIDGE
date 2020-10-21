@@ -30,7 +30,7 @@ def mask_image(cutout, nsigma=1., gauss_width=2.0, npixels=5):
 
     # Attempt to de-blend. Return original segments upon failure.
     try:
-        deb_segments = deblend_sources(cutout, segments, npixels=5,
+        deb_segments = deblend_sources(cutout, segments, npixels=npixels,
                                        filter_kernel=kernel)
     except ImportError:
         print("Skimage not working!")
@@ -77,6 +77,38 @@ def mask_image(cutout, nsigma=1., gauss_width=2.0, npixels=5):
     mask_data["N_MASKED"] = num_masked
 
     return cutout_copy, mask_data
+
+
+def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
+    """ Gemerates a given mask based on the input parameters """
+
+    # Generate a copy of the cutout just to prevent any weirdness with numpy pointers
+    cutout_copy = copy(cutout)
+
+    sigma = gauss_width * gaussian_fwhm_to_sigma
+    kernel = Gaussian2DKernel(sigma)
+    kernel.normalize()
+
+    # Find threshold for cutout, and make segmentation map
+    threshold = detect_threshold(cutout, snr=nsigma)
+    segments = detect_sources(cutout, threshold, npixels=npixels,
+                              filter_kernel=kernel)
+
+    # Attempt to de-blend. Return original segments upon failure.
+    try:
+        deb_segments = deblend_sources(cutout, segments, npixels=npixels,
+                                       filter_kernel=kernel)
+    except ImportError:
+        print("Skimage not working!")
+        deb_segments = segments
+    except:
+        # Don't do anything if it doesn't work
+        deb_segments = segments
+
+    segment_array = deb_segments.data
+    segment_array[segment_array > 0] = 1
+
+    return segment_array
 
 
 def estimate_background(cutout):
