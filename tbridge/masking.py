@@ -3,101 +3,62 @@ All data-processing code methods for images, including profile extraction and ma
 """
 
 from astropy.convolution import Gaussian2DKernel
-from astropy.stats import gaussian_fwhm_to_sigma
-from numpy import median, mean, max, copy, pi
-from numpy import ndarray, log, exp, sqrt
-from numpy import unravel_index, argmax, floor, ceil
-from photutils import detect_threshold, detect_sources, deblend_sources, data_properties
-from photutils.isophote import Ellipse, EllipseGeometry
-from scipy.special import gamma
+from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
+from numpy import copy, ndarray, floor
+from photutils import detect_threshold, detect_sources, deblend_sources
 
 
-def mask_image(cutout, nsigma=1., gauss_width=2.0, npixels=5):
-    """ Masks a cutout using segmentation and deblending using watershed"""
+def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=5, omit_centre=True):
+    """
+    Masks a cutout. Users can specify parameters to adjust the severity of the mask. Default
+    parameters striks a decent balance.
+    :param cutout: Input cutout to mask.
+    :param nsigma: The brightness requirement for objects.
+    :param gauss_width: The width of the gaussian kernel.
+    :param npixels: The minimum number of pixels that an object must be comprised of to be considered a source.
+    :param omit_centre: Set as true to leave the central object unmasked.
+    :return:
+    """
     mask_data = {}
+    c_x, c_y = int(floor(cutout.shape[0] / 2)), int(floor(cutout.shape[1] / 2))
 
-    # Generate a copy of the cutout just to prevent any weirdness with numpy pointers
-    cutout_copy = copy(cutout)
+    # Generate background mask and statistics
+    bg_mask = generate_mask(cutout, nsigma=0.5, gauss_width=2.0, npixels=5)
+    bg_mask = boolean_mask(bg_mask)
+    bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
-    sigma = gauss_width * gaussian_fwhm_to_sigma
-    kernel = Gaussian2DKernel(sigma)
-    kernel.normalize()
+    # Generate source mask
+    source_mask = generate_mask(cutout, nsigma=nsigma, gauss_width=gauss_width, npixels=npixels)
+    source_mask = boolean_mask(source_mask, omit=[source_mask[c_x][c_y]] if omit_centre else None)
 
-    # Find threshold for cutout, and make segmentation map
-    threshold = detect_threshold(cutout, snr=nsigma)
-    segments = detect_sources(cutout, threshold, npixels=npixels,
-                              filter_kernel=kernel)
+    n_masked = sum(source_mask)
 
-    # Attempt to de-blend. Return original segments upon failure.
-    try:
-        deb_segments = deblend_sources(cutout, segments, npixels=npixels,
-                                       filter_kernel=kernel)
-    except ImportError:
-        print("Skimage not working!")
-        deb_segments = segments
-    except:
-        # Don't do anything if it doesn't work
-        deb_segments = segments
+    masked_cutout = copy(cutout)
+    masked_cutout[source_mask] = bg_median
 
-    segment_array = deb_segments.data
+    mask_data["BG_MEAN"] = bg_mean
+    mask_data["BG_MEDIAN"] = bg_median
+    mask_data["BG_STD"] = bg_std
+    mask_data["N_MASKED"] = n_masked
+    mask_data["P_MASKED"] = n_masked / (cutout.shape[0] * cutout.shape[1])
 
-    # Center pixel values. (Assume that the central segment is the image, which is should be)
-    c_x, c_y = floor(segment_array.shape[0] / 2), floor(segment_array.shape[1] / 2)
-    central = segment_array[int(c_x)][int(c_y)]
-
-    # Estimate Background, and min/max values
-    bg_total, bg_pixels, bg_pixel_array = 0, 0, []
-    min_val, max_val, = cutout_copy[0][0], cutout_copy[0][0]
-    for x in range(0, segment_array.shape[0]):
-        for y in range(0, segment_array.shape[1]):
-            if segment_array[x][y] == 0:
-                bg_total += cutout_copy[x][y]
-                bg_pixels += 1
-                bg_pixel_array.append(cutout_copy[x][y])
-
-    bg_estimate = bg_total / bg_pixels
-    mask_data["BG_EST"] = bg_estimate
-    mask_data["BG_MED"] = median(bg_pixel_array)
-    mask_data["N_OBJS"] = segments.nlabels
-    mask_data["MIN_VAL"] = min_val
-    mask_data["MAX_VAL"] = max_val
-
-    # Return input image if no need to mask
-    if segments.nlabels == 1:
-        mask_data["N_MASKED"] = 0
-        return cutout_copy, mask_data
-
-    num_masked = 0
-    # Mask pixels
-    for x in range(0, segment_array.shape[0]):
-        for y in range(0, segment_array.shape[1]):
-            if segment_array[x][y] not in (0, central):
-                cutout_copy[x][y] = bg_estimate
-                num_masked += 1
-    mask_data["N_MASKED"] = num_masked
-
-    return cutout_copy, mask_data
+    return masked_cutout, mask_data
 
 
 def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
     """ Gemerates a given mask based on the input parameters """
 
-    # Generate a copy of the cutout just to prevent any weirdness with numpy pointers
-    cutout_copy = copy(cutout)
-
     sigma = gauss_width * gaussian_fwhm_to_sigma
     kernel = Gaussian2DKernel(sigma)
     kernel.normalize()
 
     # Find threshold for cutout, and make segmentation map
     threshold = detect_threshold(cutout, snr=nsigma)
-    segments = detect_sources(cutout, threshold, npixels=npixels,
-                              filter_kernel=kernel)
+    segments = detect_sources(cutout, threshold, npixels=npixels, filter_kernel=kernel)
 
     # Attempt to de-blend. Return original segments upon failure.
     try:
-        deb_segments = deblend_sources(cutout, segments, npixels=npixels,
-                                       filter_kernel=kernel)
+        deb_segments = deblend_sources(cutout, segments, npixels=npixels, filter_kernel=kernel)
     except ImportError:
         print("Skimage not working!")
         deb_segments = segments
@@ -106,38 +67,63 @@ def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
         deb_segments = segments
 
     segment_array = deb_segments.data
-    segment_array[segment_array > 0] = 1
 
     return segment_array
 
 
+def boolean_mask(mask, omit: list = None):
+    """
+    Turns a given mask (photutils segment array) into a boolean array)
+    :param mask:
+    :param omit:
+    :return:
+    """
+    if omit is None:
+        omit = []
+    elif type(omit) == int:
+        omit = [omit]
+
+    bool_mask = ndarray(mask.shape, dtype="bool")
+
+    bool_mask[:] = False
+    bool_mask[mask > 0] = True
+    for val in omit:
+        bool_mask[mask == val] = False
+
+    return bool_mask
+
+
 def estimate_background(cutout):
     """ Simple background detecting using super-pixel method"""
-    x_step = int(cutout.shape[0] / 10)
-    y_step = int(cutout.shape[1] / 10)
+    bg_mask = generate_mask(cutout, nsigma=0.5, gauss_width=2.0, npixels=5)
+    bg_mask = boolean_mask(bg_mask)
+    bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
-    super_pixel_medians, super_pixel_rms_vals = [], []
-
-    for x in range(0, cutout.shape[0] - x_step, x_step):
-        for y in range(0, cutout.shape[1] - y_step, y_step):
-            super_pixel = cutout[y: y + y_step, x: x + x_step]
-
-            super_pixel_contents = []
-            for m in range(0, super_pixel.shape[0]):
-                for n in range(0, super_pixel.shape[1]):
-                    super_pixel_contents.append(super_pixel[m][n])
-
-            super_pixel_medians.append(median(super_pixel_contents))
-            super_pixel_rms_vals.append(sqrt((mean(super_pixel_contents) - median(super_pixel_contents)) ** 2))
-
-    return median(super_pixel_medians), median(super_pixel_rms_vals)
+    return bg_mean, bg_median, bg_std
 
 
-def mask_cutouts(cutouts):
+def mask_cutouts(cutouts, method='standard'):
+    """
+    Mask a set of cutouts according to a certain method.
+    :param cutouts:
+    :param method: Which method to use.
+        standard : normal method. regular mask parameters. omits mask on central object
+        no_central: regular mask parameters. masks central object
+        background: background method: more severe mask parmeters. masks central object
+    :return: list of masked cutouts
+    """
     masked_cutouts = []
 
     for cutout in cutouts:
-        masked, mask_data = mask_image(cutout)
+        if method == 'standard':
+            masked, mask_data = mask_cutout(cutout, omit_centre=True)
+        elif method == 'no_central':
+            masked, mask_data = mask_cutout(cutout, omit_centre=False)
+        elif method == 'background':
+            masked, mask_data = mask_cutout(cutout, nsigma=0.5, gauss_width=2.0, npixels=5, omit_centre=False)
+        else:
+            continue
+
         masked_cutouts.append(masked)
 
     return masked_cutouts
