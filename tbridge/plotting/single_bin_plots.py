@@ -3,6 +3,7 @@ from astropy.table import Table
 from numpy import copy, log10
 import tbridge
 
+
 def adjust_profile(x, y, m_0=27, arcconv=0.168):
 
     x_new, y_new = copy(x), copy(y)
@@ -12,7 +13,7 @@ def adjust_profile(x, y, m_0=27, arcconv=0.168):
 
 
 def single_bin_plot(table_arrays, colours=None, ind_profile_alpha=1, medians=False, bootstraps=False, ylim=(30, 20),
-                    output="", dpi=150):
+                    xlabel=None, ylabel=None, output="", dpi=150):
 
     plt.figure(figsize=(8, 6))
 
@@ -38,7 +39,13 @@ def single_bin_plot(table_arrays, colours=None, ind_profile_alpha=1, medians=Fal
     plt.xlim(1,)
     plt.xscale("log")
 
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if ylabel is not None:
+        plt.ylabel(ylabel)
+
     plt.tight_layout()
+
     if output is not "":
         plt.show()
     else:
