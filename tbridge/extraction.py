@@ -61,18 +61,18 @@ def isophote_fitting(data: ndarray, linear=True):
             for sma in range(1, 26, 5):
                 geometry = EllipseGeometry(float(centre[0]), float(centre[1]), eps=0.9, sma=sma, pa=angle * pi / 180.)
                 flux = Ellipse(data, geometry)
-                fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=1., linear=True)
+                fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=1., linear=linear)
                 if len(fitting_list) > 0:
                     return fitting_list
                 geometry = EllipseGeometry(float(centre[0]), float(centre[1]), eps=0.5, sma=sma, pa=angle * pi / 180.)
                 flux = Ellipse(data, geometry)
-                fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=1., linear=True)
+                fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=1., linear=linear)
                 if len(fitting_list) > 0:
                     return fitting_list
 
                 geometry = EllipseGeometry(float(centre[0]), float(centre[1]), eps=0.3, sma=sma, pa=angle * pi / 180.)
                 flux = Ellipse(data, geometry)
-                fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=1., linear=True)
+                fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=1., linear=linear)
                 if len(fitting_list) > 0:
                     return fitting_list
     except RuntimeError:
