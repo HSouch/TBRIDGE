@@ -147,15 +147,29 @@ def add_to_locations_simple(models, config_values):
     return convolved_models, bg_added_models
 
 
-def convolve_models(models, config_values):
-    """ Convolve a set of models with a random selection of inputted PSFs"""
-    psf_filename = config_values["PSF_FILENAME"]
-    psfs = fits.open(psf_filename)
-    convolved_models = []
-    for model in models:
-        index = randint(0, len(psfs))
-        convolved_models.append(convolve2d(model, psfs[index].data, mode='same'))
-    psfs.close()
+def convolve_models(models, config_values=None, psf=None):
+    """
+    Convolve a set of models.
+    :param models: List of cutouts to convolve.
+    :param config_values:
+    :param psf:
+    :return:
+    """
+
+    if config_values is not None:
+        psf_filename = config_values["PSF_FILENAME"]
+        psfs = fits.open(psf_filename)
+        convolved_models = []
+        for model in models:
+            index = randint(0, len(psfs))
+            convolved_models.append(convolve2d(model, psfs[index].data, mode='same'))
+        psfs.close()
+    elif psf is not None:
+        convolved_models = []
+        for model in models:
+            convolved_models.append(convolve2d(model, psf, mode='same'))
+    else:
+        return None
 
     return convolved_models
 
