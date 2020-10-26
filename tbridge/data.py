@@ -220,6 +220,34 @@ def save_profiles(profile_list, bin_info, outdir, keys):
     return None
 
 
+def save_profile_set(profiles, out_filename="profiles.fits"):
+    """
+    Save a set of profiles to a FITS file.
+    :param profiles: List of profile tables.
+    :param out_filename: Filename to save FITS file to.
+    :return:
+    """
+    valid_colnames = ["sma", "intens", "intens_err", "ellipticity", "ellipticity_err", "pa", "pa_err"]
+    out_hdulist = fits.HDUList()
+    for prof in profiles:
+        out_hdulist.append(fits.BinTableHDU(Table([prof[col] for col in valid_colnames],
+                               names=valid_colnames)))
+
+    out_hdulist.writeto(out_filename, overwrite=True)
+
+
+def load_profile_set(filename):
+    """ Load a set of profiles from a FITS file """
+    tables = []
+    with fits.open(filename) as HDUList:
+        for hdu in HDUList:
+            try:
+                tables.append(Table.read(hdu))
+            except:
+                continue
+    return tables
+
+
 def save_cutouts(cutouts, output_filename="cutouts.fits"):
     """ Save a set of cutouts to a fits HDUList object """
     out_hdulist = fits.HDUList()
