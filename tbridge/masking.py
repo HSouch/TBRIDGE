@@ -2,6 +2,8 @@
 All data-processing code methods for images, including profile extraction and masking procedures.
 """
 
+from tqdm import tqdm
+from astropy.table import Table
 from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
 from numpy import copy, ndarray, floor
@@ -102,7 +104,7 @@ def estimate_background(cutout):
     return bg_mean, bg_median, bg_std
 
 
-def mask_cutouts(cutouts, method='standard'):
+def mask_cutouts(cutouts, method='standard', progress_bar=False):
     """
     Mask a set of cutouts according to a certain method.
     :param cutouts:
@@ -114,7 +116,9 @@ def mask_cutouts(cutouts, method='standard'):
     """
     masked_cutouts = []
 
-    for cutout in cutouts:
+    iterable = cutouts if not progress_bar else tqdm(cutouts)
+
+    for cutout in iterable:
         if method == 'standard':
             masked, mask_data = mask_cutout(cutout, omit_centre=True)
         elif method == 'no_central':
@@ -128,3 +132,43 @@ def mask_cutouts(cutouts, method='standard'):
 
     return masked_cutouts
 
+
+def estimate_background_set(cutouts):
+    """
+    Estimates the background values for a set of cutouts.
+    :param cutouts:
+    :return:
+    """
+    bg_means, bg_medians, bg_stds = [], [], []
+
+    for cutout in cutouts:
+        bg_mean, bg_median, bg_std = estimate_background(cutout)
+
+        bg_means.append(bg_mean)
+        bg_medians.append(bg_median)
+        bg_stds.append(bg_std)
+
+    return bg_means, bg_medians, bg_stds
+
+
+def subtract_backgrounds(profile_set, background_array):
+    """
+    Generate an array of tables identical to the input except the respective backgrounds
+    are subtracted from the intensity array for each table.
+    :param profile_set: Set of profiles (in the photutiuls isolist format)
+    :param background_array: Array of background values to subtract from each profile table.
+    :return: List of profiles of length len(profile_set)
+    """
+    bg_subtracted_tables = []
+
+    for i in range(0, len(profile_set)):
+        this_table = profile_set[i]
+        isotable_localsub = Table()
+
+        for col in this_table.colnames:
+            isotable_localsub[col] = copy(this_table[col])
+        isotable_localsub["intens"] = ((isotable_localsub["intens"]) - background_array[i])
+
+        bg_subtracted_tables.append(isotable_localsub)
+
+    return bg_subtracted_tables
