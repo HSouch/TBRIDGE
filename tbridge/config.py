@@ -48,6 +48,39 @@ def load_config_file(filename, verbose_test=False):
     return config_values
 
 
+def default_config_params():
+    """
+    Dumps a dict object containing all default parameters in proper type format.
+    :return:
+    """
+    default_params = {
+        "CATALOG": "cat.fits",
+        "IMAGE_DIRECTORY": "images/",
+        "PSF_FILENAME": "i_psfs.fits",
+        "OUT_DIR": "out/",
+        "MASS_KEY": "MASSES",
+        "Z_KEY": "REDSHIFTS",
+        "SFPROB_KEY": "SFPROBS",
+        "MAG_KEY": "i",
+        "R50_KEY": "R50S",
+        "N_KEY": "SERSIC_NS",
+        "ELLIP_KEY": "ELLIPS",
+        "SIZE": 100,
+        "BAND": "i",
+        "CORES": 4,
+        "ARC_CONV": 0.2,
+        "N_MODELS": 100,
+        "MASS_BINS": arange(10., 12., 0.4),
+        "REDSHIFT_BINS": arange(0.1, 0.9, 0.2),
+        "SFPROB_BINS": arange(0.0, 1, 0.5),
+        "MASS_STEP": 0.4,
+        "REDSHIFT_STEP": 0.2,
+        "SFPROB_STEP": 0.5
+    }
+
+    return default_params
+
+
 def dump_default_config_file(directory):
     """
     Dumps a default configuration file with all necessary parameters in the directory
