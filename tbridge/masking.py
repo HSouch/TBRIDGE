@@ -55,7 +55,7 @@ def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
     kernel.normalize()
 
     # Find threshold for cutout, and make segmentation map
-    threshold = detect_threshold(cutout, snr=nsigma)
+    threshold = detect_threshold(cutout, nsigma=nsigma)
     segments = detect_sources(cutout, threshold, npixels=npixels, filter_kernel=kernel)
 
     # Attempt to de-blend. Return original segments upon failure.
@@ -73,7 +73,7 @@ def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
     return segment_array
 
 
-def boolean_mask(mask, omit: list = None):
+def boolean_mask(mask, omit=None):
     """
     Turns a given mask (photutils segment array) into a boolean array)
     :param mask:
