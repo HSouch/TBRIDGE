@@ -2,7 +2,7 @@ from numpy import ceil, sqrt, log
 from matplotlib import pyplot as plt
 
 
-def view_cutouts(cutouts, output="", dpi=150, show_index=False, log_scale=True):
+def view_cutouts(cutouts, output="", dpi=150, show_index=False, log_scale=True, limits=(1, -3), cmap="magma_r"):
     """ Generate cutouts plot for input filename"""
 
     width = int(ceil(sqrt(len(cutouts))))
@@ -22,13 +22,13 @@ def view_cutouts(cutouts, output="", dpi=150, show_index=False, log_scale=True):
             try:
                 image = cutouts[index]
                 if log_scale:
-                    ax[x][y].imshow(log(image), cmap="magma_r")
+                    ax[x][y].imshow(log(image), cmap=cmap, vmax=limits[0], vmin=limits[1])
                 else:
-                    ax[x][y].imshow(image, cmap="magma_r")
+                    ax[x][y].imshow(image, cmap=cmap, vmax=limits[0], vmin=limits[1])
 
                 if show_index:
-                    ax[x][y].text(5, 0, str(index), color="red", **{'fontname': 'Helvetica'}, fontweight="bold",
-                                  fontsize=10, alpha=0.7)
+                    ax[x][y].text(5, 0, str(index), color="red", fontweight="bold",
+                                  fontsize=10, alpha=0.7, **{'fontname': 'Helvetica'})
             except:
                 pass
 
