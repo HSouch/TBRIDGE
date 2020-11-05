@@ -9,7 +9,7 @@ from numpy import arange, array, sqrt, str
 from numpy.random import choice, uniform
 
 
-def get_closest_psf(psfs: fits.HDUList, obj_ra: float, obj_dec: float):
+def get_closest_psf(psfs, obj_ra, obj_dec):
     """ Get the closest psf for a given object's RA and DEC"""
 
     def dist(ra1, ra2, dec1, dec2):
