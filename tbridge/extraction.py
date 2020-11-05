@@ -3,6 +3,7 @@ from numpy import ndarray, log
 from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
 from photutils.isophote import Ellipse, EllipseGeometry
+
 try:
     from .isophote_l import Ellipse, EllipseGeometry
 except ImportError:
@@ -16,7 +17,7 @@ import signal
 import warnings
 
 
-def isophote_fitting(data: ndarray, linear=True, use_alarm=False, alarm_time=60, centre_method='standard'):
+def isophote_fitting(data, linear=True, use_alarm=False, alarm_time=60, centre_method='standard'):
     """
     Generates a table of results from isophote fitting analysis. This uses photutils Isophote procedure, which is
     effectively IRAF's Ellipse() method.
