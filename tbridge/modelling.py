@@ -1,13 +1,14 @@
 from astropy.io import fits
 from astropy.modeling.models import Sersic2D
+from astropy.modeling import Fittable2DModel, Parameter
 
-from numpy import exp, isnan, mgrid, ceil, pi
+from numpy import exp, isnan, mgrid, ceil, pi, cosh, cos, sin
 from numpy.random import choice, randint, uniform
 
 from photutils.datasets import make_noise_image
 
 from scipy.signal import convolve2d
-from scipy.special import gamma
+from scipy.special import gamma, kn
 from scipy.stats import gaussian_kde
 
 import tbridge
@@ -197,6 +198,43 @@ def add_to_noise(models, bg_mean=0., bg_std=0.025):
         noise_image = make_noise_image((model.shape[0], model.shape[1]), mean=bg_mean, stddev=bg_std)
         noisy_images.append(model + noise_image)
     return noisy_images
+
+
+class EdgeOnDisk(Fittable2DModel):
+    """
+    Two-dimensional Edge-On Disk model.
+
+    Parameters
+    ----------
+    amplitude : float
+        Brightness at galaxy centre
+    scale_x : float
+        Scale length along the semi-major axis
+    scale_y : float
+        Scale length along the semi-minor axis
+    x_0 : float, optional
+        x position of the center
+    y_0 : float, optional
+        y position of the center
+    theta: float, optional
+        Position angle in radians, counterclockwise from the
+        positive x-axis.
+    """
+    amplitude = Parameter(default=1)
+    scale_x = Parameter(default=1)
+    scale_y = Parameter(default=0.5)
+    x_0 = Parameter(default=0)
+    y_0 = Parameter(default=0)
+    theta = Parameter(default=0)
+
+    @classmethod
+    def evaluate(cls, x, y, amplitude, scale_x, scale_y, x_0, y_0, theta):
+        """Two dimensional Sersic profile function."""
+
+        x_maj = abs((x - x_0) * cos(theta) + (y - y_0) * sin(theta))
+        x_min = -(x - x_0) * sin(theta) + (y - y_0) * cos(theta)
+
+        return amplitude * (x_maj / scale_x) * kn(1, x_maj / scale_x) / (cosh(x_min / scale_y) ** 2)
 
 
 class ObjectGenError(Exception):
