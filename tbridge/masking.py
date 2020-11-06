@@ -51,8 +51,7 @@ def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
     """ Gemerates a given mask based on the input parameters """
 
     sigma = gauss_width * gaussian_fwhm_to_sigma
-    kernel = Gaussian2DKernel(sigma)
-    kernel.normalize()
+    kernel = Gaussian2DKernel(sigma).normalize()
 
     # Find threshold for cutout, and make segmentation map
     threshold = detect_threshold(cutout, nsigma=nsigma)
