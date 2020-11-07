@@ -36,6 +36,9 @@ def view_cutouts(cutouts, output="", dpi=150, show_index=False, log_scale=True, 
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.2, wspace=0.2)
 
-    print("Saving figure to " + output)
-    plt.savefig(output, dpi=dpi)
+    if output is "":
+        plt.show()
+    else:
+        print("Saving figure to " + output)
+        plt.savefig(output, dpi=dpi)
 
