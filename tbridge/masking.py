@@ -54,7 +54,7 @@ def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
     kernel = Gaussian2DKernel(sigma).normalize()
 
     # Find threshold for cutout, and make segmentation map
-    threshold = detect_threshold(cutout, nsigma=nsigma)
+    threshold = detect_threshold(cutout, snr=nsigma)
     segments = detect_sources(cutout, threshold, npixels=npixels, filter_kernel=kernel)
 
     # Attempt to de-blend. Return original segments upon failure.
