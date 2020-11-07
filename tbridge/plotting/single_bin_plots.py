@@ -12,7 +12,8 @@ def adjust_profile(x, y, m_0=27, arcconv=0.168):
     return x_new, y_new
 
 
-def single_bin_plot(table_arrays, colours=None, ind_profile_alpha=1, medians=False, bootstraps=False, ylim=(30, 20),
+def single_bin_plot(table_arrays, colours=None, ind_profile_alpha=1, medians=False, to_sb=True,
+                    bootstraps=False, ylim=(30, 20),
                     xlabel=None, ylabel=None, output="", dpi=150):
 
     plt.figure(figsize=(8, 6))
@@ -31,7 +32,8 @@ def single_bin_plot(table_arrays, colours=None, ind_profile_alpha=1, medians=Fal
             median_sma, median_interp = tbridge.get_median(interps, tbridge.bin_max(table_arrays[i]))
             median_intens = median_interp(median_sma)
 
-            median_sma, median_intens = adjust_profile(median_sma, median_intens)
+            if to_sb:
+                median_sma, median_intens = adjust_profile(median_sma, median_intens)
 
             plt.plot(median_sma, median_intens, lw=3, c=colours[i])
 
@@ -46,7 +48,7 @@ def single_bin_plot(table_arrays, colours=None, ind_profile_alpha=1, medians=Fal
 
     plt.tight_layout()
 
-    if output is not "":
+    if output is "":
         plt.show()
     else:
         plt.savefig(output, dpi=dpi)
