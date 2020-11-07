@@ -66,10 +66,14 @@ def process_bin(b, config_values, separate_mags=None, linear=True, provided_bgs=
     # Extract profiles
     model_list = tbridge.extract_profiles((convolved_models, noisy_models, bg_added_models), progress_bar=progress_bar,
                                           linear=linear)
-    warnings.filterwarnings("ignore")
+
+    # Estimate backgrounds and generate bg-subtracted profile list
+    backgrounds = tbridge.estimate_background_set(bg_added_models)[1]
+    bgsub_profiles = tbridge.subtract_backgrounds(model_list[2], backgrounds)
+    model_list.append(bgsub_profiles)
 
     # Only save the profile in this bin if we have at least 1 set of profiles to save
     if len(model_list[0]) > 0:
         # Save profiles
         tbridge.save_profiles(model_list, bin_info=b.bin_params,
-                              outdir=config_values["OUT_DIR"], keys=["bare", "noisy", "bgadded"])
+                              outdir=config_values["OUT_DIR"], keys=["bare", "noisy", "bgadded", "bgsub"])
