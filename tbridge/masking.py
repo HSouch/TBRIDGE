@@ -95,7 +95,7 @@ def boolean_mask(mask, omit=None):
 
 
 def estimate_background(cutout):
-    """ Simple background detecting using super-pixel method"""
+    """ Estimate the background mean, median, and standard deviation of a cutout using sigma-clipped-stats """
     bg_mask = generate_mask(cutout, nsigma=0.5, gauss_width=2.0, npixels=5)
     bg_mask = boolean_mask(bg_mask)
     bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
