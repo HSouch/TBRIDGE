@@ -2,9 +2,14 @@ from numpy import arange, nan, inf, sort, median, floor, max
 from numpy.random import choice
 from scipy.interpolate import interp1d
 
+import multiprocessing as mp
+
 from astropy.io import fits
 from astropy.table import Table
 
+import tbridge
+import os
+from pathlib import Path
 
 def as_interpolations(profile_list, fill_value_type='min', x_key="sma", y_key="intens"):
 
@@ -140,3 +145,45 @@ def save_medians(median_data, bootstrap_data=None, output_filename="medians.fits
         out_hdulist.append(fits.BinTableHDU(t))
 
     out_hdulist.writeto(output_filename, overwrite=True)
+
+
+def __median_processing(full_filename, out_dir="", subdir=""):
+    """
+    Run through the median processing on a given filename.
+    :param full_filename:
+    :param out_dir:
+    :param subdir:
+    :return:
+    """
+    filename = full_filename.split("/")[len(full_filename.split("/")) - 1]
+    print(filename, subdir)
+    prof_list = tbridge.tables_from_file(full_filename)
+
+    bin_max_value = bin_max(prof_list)
+
+    prof_list = as_interpolations(prof_list)
+
+    med_data = tbridge.get_median(prof_list, bin_max_value)
+    bootstrap_data = tbridge.bootstrap_uncertainty(prof_list, bin_max_value, iterations=5)
+    tbridge.save_medians(med_data, bootstrap_data, output_filename=out_dir + subdir + filename)
+
+
+def median_pipeline(in_dir, multiprocess=False, cores=1):
+
+    out_dir = in_dir[:len(in_dir) - 1] + "_medians/"
+
+    subdirs = os.listdir(in_dir)
+    tbridge.generate_file_structure(out_dir, subdirs)
+
+    for subdir in subdirs:
+        subdir = subdir + "/"
+
+        bins = [str(b) for b in Path(in_dir + subdir).rglob('*.fits')]
+
+        if multiprocess:
+            pool = mp.Pool(processes=cores)
+            results = [pool.apply_async(__median_processing, (b, out_dir, subdir)) for b in bins]
+            [res.get() for res in results]
+        else:
+            for b in bins:
+                __median_processing(b, out_dir, subdir)
