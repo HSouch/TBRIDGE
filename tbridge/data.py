@@ -324,3 +324,13 @@ def bin_index(val, bins):
         if val < bins[index]:
             return index
     return len(bins)
+
+
+def generate_file_structure(out_dir, subdirs):
+    """ Generate a filestructure with N subdirs within the top directory out_dir"""
+    if not os.path.isdir(out_dir):
+        os.mkdir(out_dir)
+
+    for subdir in subdirs:
+        if not os.path.isdir(out_dir + subdir + "/"):
+            os.mkdir(out_dir + subdir + "/")
