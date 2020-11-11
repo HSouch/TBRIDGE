@@ -81,7 +81,7 @@ def default_config_params():
     return default_params
 
 
-def dump_default_config_file(directory):
+def dump_default_config_file(directory=""):
     """
     Dumps a default configuration file with all necessary parameters in the directory
     :param directory:
