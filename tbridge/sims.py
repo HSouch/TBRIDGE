@@ -3,15 +3,22 @@ import multiprocessing as mp
 import warnings
 
 
-def pipeline(config_values, max_bins=None, separate_mags=None, linear=True, provided_bgs=None, progress_bar=False):
+def pipeline(config_values, max_bins=None, separate_mags=None, linear=True, provided_bgs=None, progress_bar=False,
+             verbose=False, multiprocess_level='obj'):
     """
     Runs the entire simulation pipeline assuming certain data exists.
     :param config_values: Values from properly loaded configuration file.
     :param max_bins: The number of bins to process (useful if running tests).
     :param separate_mags: Optional array of magnitudes.
     :param linear:
-    :param progress_bar: Have a TQDM progress bar.
     :param provided_bgs: A set of provided background cutouts [OPTIONAL].
+    :param progress_bar: Have a TQDM progress bar.
+    :param verbose: Have command-line output printing out at various steps
+    :param multiprocess_level: Where in the simulations to divide into cores
+        'obj' - Divide at the object level, where each core handles a single object in each bin.
+        'bin' - Divide at the bin level, so each core is responsible for a single bin
+
+        The object level is less memory intensive, but bins are processed one by one instead of simultaneously.
 
     EXAMPLE USAGE:
 
@@ -23,13 +30,20 @@ def pipeline(config_values, max_bins=None, separate_mags=None, linear=True, prov
     binned_objects = tbridge.bin_catalog(config_values["CATALOG"], config_values)
     max_bins = len(binned_objects) if max_bins is None else max_bins
 
-    pool = mp.Pool(processes=config_values["CORES"])
-    results = [pool.apply_async(process_bin, (b, config_values, separate_mags, linear, provided_bgs, progress_bar))
-               for b in binned_objects[:max_bins]]
-    [res.get() for res in results]
+    if multiprocess_level == 'bin':
+        pool = mp.Pool(processes=config_values["CORES"])
+        results = [pool.apply_async(_process_bin, (b, config_values, separate_mags, linear, provided_bgs, progress_bar,
+                                                   verbose, False))
+                   for b in binned_objects[:max_bins]]
+        [res.get() for res in results]
+    elif multiprocess_level == 'obj':
+        for b in binned_objects:
+            _process_bin(b, config_values, separate_mags=separate_mags, linear=linear, provided_bgs=provided_bgs,
+                         progress_bar=progress_bar, verbose=verbose, multiprocess=True)
 
 
-def process_bin(b, config_values, separate_mags=None, linear=True, provided_bgs=None, progress_bar=False):
+def _process_bin(b, config_values, separate_mags=None, linear=True, provided_bgs=None, progress_bar=False,
+                verbose=False, multiprocess=False):
     """
     Process a single bin of galaxies. (Tuned for pipeline usage but can be used on an individual basis.
     :param b: Bin to obtain full profiles from.
