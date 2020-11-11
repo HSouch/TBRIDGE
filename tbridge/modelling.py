@@ -94,8 +94,9 @@ def simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=10):
                     and (this_r50_pix > 0)
             if not clean:
                 fails += 1
-        if fails > 10000:
-            raise ObjectGenError()
+            if fails > 10000:
+                raise ObjectGenError()
+                continue
 
         sersic_model = Sersic2D(amplitude=i_r50, r_eff=this_r50_pix, n=this_n,
                                 ellip=this_ellip, theta=uniform(0, 2 * pi),
@@ -127,8 +128,8 @@ def add_to_locations_simple(models, config_values):
             if image is None:
                 continue
 
-            c_x = randint(model_width, image.shape[0] - model_width)
-            c_y = randint(model_width, image.shape[1] - model_width)
+            c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
+            c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
             x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
             y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
 
