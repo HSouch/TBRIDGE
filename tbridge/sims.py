@@ -1,6 +1,5 @@
 import tbridge
 import multiprocessing as mp
-import warnings
 
 
 def pipeline(config_values, max_bins=None, separate_mags=None, linear=True, provided_bgs=None, progress_bar=False,
@@ -38,11 +37,11 @@ def pipeline(config_values, max_bins=None, separate_mags=None, linear=True, prov
         [res.get() for res in results]
     elif multiprocess_level == 'obj':
         for b in binned_objects:
-            _process_bin(b, config_values, separate_mags=separate_mags, linear=linear, provided_bgs=provided_bgs,
+            _process_bin(b, config_values, separate_mags=separate_mags, provided_bgs=provided_bgs,
                          progress_bar=progress_bar, verbose=verbose, multiprocess=True)
 
 
-def _process_bin(b, config_values, separate_mags=None, linear=True, provided_bgs=None, progress_bar=False,
+def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progress_bar=False,
                 verbose=False, multiprocess=False):
     """
     Process a single bin of galaxies. (Tuned for pipeline usage but can be used on an individual basis.
@@ -61,7 +60,8 @@ def _process_bin(b, config_values, separate_mags=None, linear=True, provided_bgs
     if separate_mags is not None:
         mags = tbridge.pdf_resample(separate_mags, resample_size=len(r50s))[0]
 
-    print("Simulating Bin: ", b.bin_params)
+    if verbose:
+        print("Simulating Bin: ", b.bin_params)
 
     # Generate all models
     models = tbridge.simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=config_values["N_MODELS"])
@@ -78,8 +78,8 @@ def _process_bin(b, config_values, separate_mags=None, linear=True, provided_bgs
     noisy_models = tbridge.add_to_noise(convolved_models)
 
     # Extract profiles
-    model_list = tbridge.extract_profiles((convolved_models, noisy_models, bg_added_models), progress_bar=progress_bar,
-                                          linear=linear)
+    model_list = tbridge.extract_profiles((convolved_models, noisy_models, bg_added_models), config_values,
+                                          progress_bar=progress_bar)
 
     # Estimate backgrounds and generate bg-subtracted profile list
     backgrounds = tbridge.estimate_background_set(bg_added_models)[1]
