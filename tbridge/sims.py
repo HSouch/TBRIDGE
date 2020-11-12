@@ -68,7 +68,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
 
     # Generate BG added models in accordance to whether a user has provided backgrounds or not
     if provided_bgs is None:
-        convolved_models, bg_added_models = tbridge.add_to_locations_simple(models[:], config_values)
+        bg_added_models, convolved_models = tbridge.add_to_locations_simple(models[:], config_values)
         bg_added_models = tbridge.mask_cutouts(bg_added_models)
     else:
         convolved_models = tbridge.convolve_models(models, config_values)
