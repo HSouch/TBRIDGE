@@ -1,4 +1,4 @@
-from numpy import arange, nan, inf, sort, median, floor, max
+from numpy import arange, nan, inf, sort, median, floor, max, nanmedian
 from numpy.random import choice
 from scipy.interpolate import interp1d
 
@@ -10,6 +10,7 @@ from astropy.table import Table
 import tbridge
 import os
 from pathlib import Path
+
 
 def as_interpolations(profile_list, fill_value_type='min', x_key="sma", y_key="intens"):
 
@@ -33,7 +34,7 @@ def bin_max(profile_list, key="sma"):
     return max_val
 
 
-def get_median(pop, bin_max):
+def get_median(pop, bin_max, ignore_nans=True):
     """
     Obtain the median profile for a bin of profiles. Takes "slices" along the x-axis, obtaining all profile values at
     that slice, and populates a list of median values. Also obtains the upper and lower sigma values.
@@ -62,7 +63,10 @@ def get_median(pop, bin_max):
         slice_values = sort(slice_values)
 
         # Take the median value and append it to the median list.
-        median_value = median(slice_values)
+        if ignore_nans:
+            median_value = nanmedian(slice_values)
+        else:
+            median_value = median(slice_values)
         med_intens.append(median_value)
 
     # Return the median_sma values, and the median
@@ -83,6 +87,7 @@ def bootstrap_uncertainty(pop, bin_max, iterations=101):
     for n in range(iterations):
         bootstrap_pop = choice(pop, size=len(pop), replace=True)
         bootstrap_medians.append(get_median(bootstrap_pop, bin_max)[1])
+
 
     bootstrap_sma = arange(0, bin_max, bin_max / 100)
     err_upper, err_lower = [], []
@@ -147,7 +152,7 @@ def save_medians(median_data, bootstrap_data=None, output_filename="medians.fits
     out_hdulist.writeto(output_filename, overwrite=True)
 
 
-def __median_processing(full_filename, out_dir="", subdir=""):
+def __median_processing(full_filename, out_dir="", subdir="", iterations=101):
     """
     Run through the median processing on a given filename.
     :param full_filename:
@@ -164,11 +169,11 @@ def __median_processing(full_filename, out_dir="", subdir=""):
     prof_list = as_interpolations(prof_list)
 
     med_data = tbridge.get_median(prof_list, bin_max_value)
-    bootstrap_data = tbridge.bootstrap_uncertainty(prof_list, bin_max_value, iterations=5)
+    bootstrap_data = tbridge.bootstrap_uncertainty(prof_list, bin_max_value, iterations=iterations)
     tbridge.save_medians(med_data, bootstrap_data, output_filename=out_dir + subdir + filename)
 
 
-def median_pipeline(in_dir, multiprocess=False, cores=1):
+def median_pipeline(in_dir, multiprocess=False, cores=1, iterations=101):
 
     out_dir = in_dir[:len(in_dir) - 1] + "_medians/"
 
@@ -182,8 +187,8 @@ def median_pipeline(in_dir, multiprocess=False, cores=1):
 
         if multiprocess:
             pool = mp.Pool(processes=cores)
-            results = [pool.apply_async(__median_processing, (b, out_dir, subdir)) for b in bins]
+            results = [pool.apply_async(__median_processing, (b, out_dir, subdir, iterations)) for b in bins]
             [res.get() for res in results]
         else:
             for b in bins:
-                __median_processing(b, out_dir, subdir)
+                __median_processing(b, out_dir, subdir, iterations)
