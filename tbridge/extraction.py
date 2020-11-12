@@ -19,7 +19,7 @@ import warnings
 
 
 def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_method='standard',
-                     fit_method='standard'):
+                     fit_method='standard', maxrit=None):
     """
     Generates a table of results from isophote fitting analysis. This uses photutils Isophote procedure, which is
     effectively IRAF's Ellipse() method.
@@ -63,7 +63,8 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
         geometry = EllipseGeometry(pos[0], pos[1], sma=a, eps=(1 - (b / a)), pa=theta)
         flux = Ellipse(data, geometry)
-        fitting_list = flux.fit_image(maxit=100, maxsma=cutout_halfwidth, step=step, linear=linear)
+        fitting_list = flux.fit_image(maxit=100, maxsma=cutout_halfwidth, step=step, linear=linear,
+                                      maxrit=cutout_halfwidth / 3)
         if len(fitting_list) > 0:
             return fitting_list
 
@@ -92,7 +93,8 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
                     geometry = EllipseGeometry(float(centre[0]), float(centre[1]), eps=eps,
                                                sma=sma, pa=angle * pi / 180.)
                     flux = Ellipse(data, geometry)
-                    fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=step, linear=linear)
+                    fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=step, linear=linear,
+                                                  maxrit=cutout_halfwidth / 3)
                     if len(fitting_list) > 0:
                         return fitting_list
 
@@ -118,7 +120,7 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
 
 def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, alarm_time=60,
-                     multiproccess=False):
+                     multiproccess=False, maxrit=None):
     """
     Extract all available profiles
     :param cutout_list: A 2D list of cutouts. The length of each column needs to be the same!
