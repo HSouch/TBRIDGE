@@ -32,6 +32,7 @@ def load_config_file(filename, verbose_test=False):
     config_values["CORES"] = int(config_values["CORES"])
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
     config_values["N_MODELS"] = int(config_values["N_MODELS"])
+    config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
 
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
@@ -75,7 +76,9 @@ def default_config_params():
         "SFPROB_BINS": arange(0.0, 1, 0.5),
         "MASS_STEP": 0.4,
         "REDSHIFT_STEP": 0.2,
-        "SFPROB_STEP": 0.5
+        "SFPROB_STEP": 0.5,
+        "LINEAR": True,
+        "LINEAR_STEP": 1
     }
 
     return default_params
@@ -116,6 +119,10 @@ def dump_default_config_file(directory=""):
              "MASS_BINS           = 10., 12., 0.4",
              "REDSHIFT_BINS       = 0.1, 0.9, 0.2",
              "SFPROB_BINS         = 0.0, 1, 0.5",
+             "",
+             "# Parameters for profile extraction.",
+             "LINEAR              = True",
+             "LINEAR_STEP         = 1",
              ]
 
     with open(directory + "config.tbridge", "w+") as f:
