@@ -107,7 +107,7 @@ def simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=10):
     return sersic_models
 
 
-def add_to_locations_simple(models, config_values):
+def add_to_locations_simple(models, config_values, convolve=True):
 
     image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
 
@@ -139,14 +139,17 @@ def add_to_locations_simple(models, config_values):
             psf = tbridge.get_closest_psf(psfs, ra, dec).data
 
             # print(model_halfwidth, image.shape, type(image_wcs), c_x, c_y, psf.shape)
+            if convolve:
+                convolved_model = convolve2d(models[i], psf, mode='same')
+                convolved_models.append(convolved_model)
 
-            convolved_model = convolve2d(models[i], psf, mode='same')
-            bg_added_model = convolved_model + image_cutout
-
-            convolved_models.append(convolved_model)
+            bg_added_model = models[i] + image_cutout
             bg_added_models.append(bg_added_model)
 
-    return convolved_models, bg_added_models
+    if convolve:
+        return bg_added_models, convolved_models
+    else:
+        return bg_added_models
 
 
 def convolve_models(models, config_values=None, psf=None):
