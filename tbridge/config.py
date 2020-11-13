@@ -1,3 +1,4 @@
+import urllib.request
 from numpy import arange
 
 
@@ -8,10 +9,21 @@ def load_config_file(filename, verbose_test=False):
     :param verbose_test:
     :return:
     """
-
+    print(filename)
     config_values = {}
 
-    config_lines = open(filename, "r").readlines()
+    try:
+        config_lines = open(filename, "r").readlines()
+    except FileNotFoundError:
+        try:
+            r = urllib.request.urlopen(filename)
+            config_lines = []
+            for line in r:
+                config_lines.append(line.decode("utf-8"))
+        except:
+            print("Failed to get any file")
+            return None
+
     for line in config_lines:
         line = line.strip()
         if len(line) == 0 or line[0] == "#":
