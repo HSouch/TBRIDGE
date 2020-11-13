@@ -23,3 +23,8 @@ And to load this file (or any configuration file), we use this command::
 
     config_params = tbridge.load_config_file("path/to/config/file.tbridge")
 
+Users can also load config file parameters from a file stored online by inputting a URL. Users can
+test this by loading in the following file::
+
+    tbridge.load_config_file("https://raw.githubusercontent.com/HSouch/HelpfulSnippets/master/config.tbridge")
+
