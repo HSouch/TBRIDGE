@@ -34,17 +34,18 @@ def bin_max(profile_list, key="sma"):
     return max_val
 
 
-def get_median(pop, bin_max, ignore_nans=True):
+def get_median(pop, bin_max, ignore_nans=True, profile_division=100):
     """
     Obtain the median profile for a bin of profiles. Takes "slices" along the x-axis, obtaining all profile values at
     that slice, and populates a list of median values. Also obtains the upper and lower sigma values.
 
-    pop: The list of profiles to get the median of. (These are scipy interp1D objects)
-    bin_max: The value to extract the median out to. Defined as the maximum value of the largest profile.
+    :param pop: The list of profiles to get the median of. (These are scipy interp1D objects)
+    :param bin_max: The value to extract the median out to. Defined as the maximum value of the largest profile.
+    :param profile_division: The number of slices to divide the semi-major axis into
     """
 
     # Sample 100 times along the x-axis
-    med_sma = arange(0, bin_max, bin_max / 100)
+    med_sma = arange(0, bin_max, bin_max / profile_division)
 
     med_intens, upper_sigma_1sig, lower_sigma_1sig = [], [], []
 
