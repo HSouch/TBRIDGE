@@ -11,5 +11,5 @@ TBriDGE Documentation
 
    config.rst
    simulating_galaxies.rst
-
+   pipelines.rst
 
