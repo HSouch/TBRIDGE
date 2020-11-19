@@ -7,26 +7,36 @@ from astropy.table import Table
 from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
 from numpy import copy, ndarray, floor
-from photutils import detect_threshold, detect_sources, deblend_sources
+from photutils import detect_threshold, detect_sources, deblend_sources, make_source_mask
 
 
-def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=5, omit_centre=True):
+def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=5, omit_centre=True, bg_method='general'):
     """
     Masks a cutout. Users can specify parameters to adjust the severity of the mask. Default
-    parameters striks a decent balance.
+    parameters strikes a decent balance.
     :param cutout: Input cutout to mask.
     :param nsigma: The brightness requirement for objects.
     :param gauss_width: The width of the gaussian kernel.
     :param npixels: The minimum number of pixels that an object must be comprised of to be considered a source.
     :param omit_centre: Set as true to leave the central object unmasked.
+    :param bg_method: How the background is estimated.
+        general [DEFAULT] - Generate mask using tbridge.generate_mask()
+        source_mask [DEFAULT] - Use the photutils make_source_mask method.
     :return:
     """
     mask_data = {}
     c_x, c_y = int(floor(cutout.shape[0] / 2)), int(floor(cutout.shape[1] / 2))
 
     # Generate background mask and statistics
-    bg_mask = generate_mask(cutout, nsigma=0.5, gauss_width=2.0, npixels=5)
-    bg_mask = boolean_mask(bg_mask)
+    if bg_method == 'general':
+        bg_mask = generate_mask(cutout, nsigma=2, gauss_width=2.0, npixels=5)
+        bg_mask = boolean_mask(bg_mask)
+    elif bg_method == 'source_mask':
+        bg_mask = make_source_mask(cutout, nsigma=2, npixels=3, dilate_size=7)
+    else:
+        bg_mask = generate_mask(cutout, nsigma=2, gauss_width=2.0, npixels=5)
+        bg_mask = boolean_mask(bg_mask)
+
     bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
     # Generate source mask
