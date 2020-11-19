@@ -174,11 +174,12 @@ def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, a
     return output_profiles
 
 
-def extract_profiles_single_row(cutouts, config):
+def extract_profiles_single_row(cutouts, config, bg_info=None,):
     """
     Extract profiles for a single row.
     :param cutouts: A list of cutouts to extract. (Single row)
     :param config: Configuration parameters
+    :param bg_info: Background info for the bg-added cutout (to maintain proper order in multithreading).
     :return:
     """
 
@@ -191,9 +192,9 @@ def extract_profiles_single_row(cutouts, config):
             output_profiles.append(t.to_table())
 
     if len(output_profiles) == len(cutouts):
-        return output_profiles
+        return output_profiles, bg_info
     else:
-        return []
+        return [], None
 
 
 class TimeoutException(Exception):

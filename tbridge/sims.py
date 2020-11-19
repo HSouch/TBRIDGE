@@ -70,6 +70,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
         if verbose:
             print("Simulating Models for: ", b.bin_params)
 
+        # Simulated galaxies using multiprocessing
         with mp.Pool(processes=config_values["CORES"]) as pool:
             models = tbridge.simulate_sersic_models(mags, r50s, ns, ellips,
                                                     config_values, n_models=config_values["N_MODELS"])
@@ -77,14 +78,6 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
             results = [pool.apply_async(_simulate_single_model, (models[i], config_values, provided_bgs))
                        for i in range(0, len(models))]
             model_list = [res.get() for res in results]
-        bg_info = []
-        for i in range(0, len(model_list)):
-            # Every row is going to be a tuple with the list of model images, and the background info for that row.
-            row = model_list[i]
-            bg_info.append(row[1])
-            model_list[i] = row[0]
-
-        bg_info = transpose(bg_info)
 
         # Get all profile lists from our developed models.
         if verbose:
@@ -92,7 +85,8 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
 
         with mp.Pool(processes=config_values["CORES"]) as pool:
             results = [pool.apply_async(tbridge.extract_profiles_single_row,
-                                        (model_list[i], config_values)) for i in range(0, len(model_list))]
+                                        (model_list[i][0], config_values, model_list[i][1]))
+                       for i in range(0, len(model_list))]
 
             full_profile_list = []
             try:
@@ -105,7 +99,17 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
             return
 
         # Trim all empty arrays from the profile list
-        profile_list = [x for x in full_profile_list if len(x) > 0]
+        profile_list = [row for row in full_profile_list if len(row[0]) > 0]
+
+        bg_info = []
+        for i in range(0, len(profile_list)):
+            # Every row is going to be a tuple with the list of model images, and the background info for that row.
+            row = profile_list[i]
+            bg_info.append(row[1])
+            profile_list[i] = row[0]
+
+        bg_info = transpose(bg_info)
+        print(bg_info)
 
         # Reformat into a column-format
         profile_list = _reformat_profile_list(profile_list)
