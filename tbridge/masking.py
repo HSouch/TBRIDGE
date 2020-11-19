@@ -114,7 +114,7 @@ def mask_cutouts(cutouts, method='standard', progress_bar=False):
     :return: list of masked cutouts
     """
     masked_cutouts = []
-
+    bg_means, bg_medians, bg_stds = [], [], []
     iterable = cutouts if not progress_bar else tqdm(cutouts)
 
     for cutout in iterable:
@@ -128,8 +128,11 @@ def mask_cutouts(cutouts, method='standard', progress_bar=False):
             continue
 
         masked_cutouts.append(masked)
+        bg_means.append(mask_data["BG_MEAN"])
+        bg_medians.append(mask_data["BG_MEDIAN"])
+        bg_stds.append(mask_data["BG_STD"])
 
-    return masked_cutouts
+    return masked_cutouts, [bg_means, bg_medians, bg_stds]
 
 
 def estimate_background_set(cutouts):
