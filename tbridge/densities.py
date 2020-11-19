@@ -45,7 +45,7 @@ def cutout_gradients(cutouts, mask_cutouts=False):
     """
 
     if mask_cutouts:
-        cutouts = tbridge.mask_cutouts(cutouts, method='no_central')
+        cutouts, bg_info = tbridge.mask_cutouts(cutouts, method='no_central')
 
     gradients = []
     for cutout in cutouts:
