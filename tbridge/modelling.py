@@ -95,7 +95,6 @@ def simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=10):
             if not clean:
                 fails += 1
             if fails > 10000:
-                raise ObjectGenError()
                 continue
 
         sersic_model = Sersic2D(amplitude=i_r50, r_eff=this_r50_pix, n=this_n,
