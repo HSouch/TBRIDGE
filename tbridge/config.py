@@ -9,7 +9,6 @@ def load_config_file(filename, verbose_test=False):
     :param verbose_test:
     :return:
     """
-    print(filename)
     config_values = {}
 
     try:
@@ -45,6 +44,7 @@ def load_config_file(filename, verbose_test=False):
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
     config_values["N_MODELS"] = int(config_values["N_MODELS"])
     config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
+    config_values["ALARM_TIME"] = int(config_values["ALARM_TIME"])
 
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
@@ -67,6 +67,8 @@ def default_config_params():
     :return:
     """
     default_params = {
+        "VERBOSE": True,
+        "TEST_VERBOSE": False,
         "CATALOG": "cat.fits",
         "IMAGE_DIRECTORY": "images/",
         "PSF_FILENAME": "i_psfs.fits",
@@ -90,7 +92,9 @@ def default_config_params():
         "REDSHIFT_STEP": 0.2,
         "SFPROB_STEP": 0.5,
         "LINEAR": True,
-        "LINEAR_STEP": 1
+        "LINEAR_STEP": 1,
+        "USE_ALARM": True,
+        "ALARM_TIME": 60
     }
 
     return default_params
@@ -102,11 +106,15 @@ def dump_default_config_file(directory=""):
     :param directory:
     :return:
     """
-    lines = ["# Directories and filenames -- Input and output",
+    lines = ["# Set verbosity printouts. VERBOSE: General printouts. TEST_VERBOSE: Additional printouts.",
+             "VERBOSE             = True",
+             "TEST_VERBOSE        = False",
+             "",
+             "# Directories and filenames -- Input and output",
              "CATALOG             = cat.fits",
              "IMAGE_DIRECTORY     = images/",
              "PSF_FILENAME        = i_psfs.fits",
-             "OUT_DIR              = out/",
+             "OUT_DIR             = out/",
              "",
              "# Keys for masses, redshifts, and star-formation probability.",
              "MASS_KEY            = MASSES",
@@ -135,6 +143,8 @@ def dump_default_config_file(directory=""):
              "# Parameters for profile extraction.",
              "LINEAR              = True",
              "LINEAR_STEP         = 1",
+             "USE_ALARM           = True",
+             "ALARM_TIME          = 60"
              ]
 
     with open(directory + "config.tbridge", "w+") as f:
