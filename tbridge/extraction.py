@@ -14,6 +14,7 @@ from tqdm import tqdm
 import sys
 import signal
 import multiprocessing as mp
+from multiprocessing.context import TimeoutError
 
 import warnings
 
@@ -32,6 +33,12 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
     fail_count, max_fails = 0, 1000
     linear = False if config is None else config["LINEAR"]
     step = 1. if config is None else config["LINEAR_STEP"]
+    verbose = False if config is None else config["VERBOSE"]
+    test_verbose = False if config is None else config["TEST_VERBOSE"]
+
+    if test_verbose:
+        print("Verbose", verbose, test_verbose, "Linear:", linear, "Step:", step, "Use Alarm:", use_alarm,
+              "Alarm Time:", alarm_time)
 
     # Get centre of image and cutout halfwidth
     if centre_method == 'standard':
@@ -76,7 +83,11 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
             return []
     except TimeoutException:
         signal.signal(signal.SIGALRM, original_handler)
-        pass
+        if verbose:
+            print("Timeout reached due to signal alarm")
+        fail_count += 1
+        if fail_count >= max_fails:
+            return []
     except:
         fail_count += 1
         if fail_count >= max_fails:
@@ -96,6 +107,8 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
                     fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=step, linear=linear,
                                                   maxrit=cutout_halfwidth / 3)
                     if len(fitting_list) > 0:
+                        if use_alarm:
+                            signal.alarm(0)
                         return fitting_list
 
     except KeyboardInterrupt:
@@ -109,23 +122,29 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
         if fail_count >= max_fails:
             return []
     except TimeoutException:
-        signal.signal(signal.SIGALRM, original_handler)
-        pass
+        signal.alarm(0)
+        if verbose:
+            print("Timeout reached due to signal alarm")
+        fail_count += 1
+        if fail_count >= max_fails:
+            return []
     except:
         fail_count += 1
         if fail_count >= max_fails:
             return []
 
+    if use_alarm:
+        signal.alarm(0)
+
     return fitting_list
 
 
-def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, alarm_time=60,
-                     multiproccess=False, maxrit=None):
+def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, alarm_time=60, maxrit=None):
     """
     Extract all available profiles
     :param cutout_list: A 2D list of cutouts. The length of each column needs to be the same!
+    :param config: Configuration parameters
     :param progress_bar: Include a fancy progress bar with tqdm if set to True
-    :param linear: Run the isophote fitting in linear mode
     :return:
     """
 
@@ -137,7 +156,10 @@ def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, a
         # Iterate through each available object
         local_profiles = []
         for j in range(0, len(cutout_list)):
-            t = isophote_fitting(cutout_list[j][index], config, use_alarm=use_alarm, alarm_time=alarm_time)
+            try:
+                t = isophote_fitting(cutout_list[j][index], config, use_alarm=use_alarm, alarm_time=alarm_time)
+            except TimeoutException:
+                continue
             if len(t) > 0:
                 local_profiles.append(t.to_table())
 
@@ -155,6 +177,28 @@ def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, a
             run_model(i)
 
     return output_profiles
+
+
+def extract_profiles_single_row(cutouts, config):
+    """
+    Extract profiles for a single row.
+    :param cutouts: A list of cutouts to extract. (Single row)
+    :param config: Configuration parameters
+    :return:
+    """
+
+    output_profiles = []
+
+    for i in range(0, len(cutouts)):
+        t = isophote_fitting(cutouts[i], config, use_alarm=False)
+
+        if len(t) > 0:
+            output_profiles.append(t.to_table())
+
+    if len(output_profiles) == len(cutouts):
+        return output_profiles
+    else:
+        return []
 
 
 class TimeoutException(Exception):
