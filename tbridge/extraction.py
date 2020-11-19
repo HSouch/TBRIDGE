@@ -1,5 +1,4 @@
-from numpy import max, pi, count_nonzero
-from numpy import ndarray, log
+from numpy import max, pi, count_nonzero, log
 from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
 from photutils.isophote import Ellipse, EllipseGeometry
@@ -13,10 +12,6 @@ from tqdm import tqdm
 
 import sys
 import signal
-import multiprocessing as mp
-from multiprocessing.context import TimeoutError
-
-import warnings
 
 
 def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_method='standard',
