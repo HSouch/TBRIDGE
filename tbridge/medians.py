@@ -89,7 +89,6 @@ def bootstrap_uncertainty(pop, bin_max, iterations=101):
         bootstrap_pop = choice(pop, size=len(pop), replace=True)
         bootstrap_medians.append(get_median(bootstrap_pop, bin_max)[1])
 
-
     bootstrap_sma = arange(0, bin_max, bin_max / 100)
     err_upper, err_lower = [], []
 
@@ -153,7 +152,8 @@ def save_medians(median_data, bootstrap_data=None, output_filename="medians.fits
     out_hdulist.writeto(output_filename, overwrite=True)
 
 
-def __median_processing(full_filename, out_dir="", subdir="", iterations=101):
+def __median_processing(full_filename, config, out_dir="", subdir="", iterations=101,
+                        x_key="REDSHIFT_BINS", y_key="MASS_BINS", x_index=1, y_index=0):
     """
     Run through the median processing on a given filename.
     :param full_filename:
@@ -161,12 +161,21 @@ def __median_processing(full_filename, out_dir="", subdir="", iterations=101):
     :param subdir:
     :return:
     """
-    filename = full_filename.split("/")[len(full_filename.split("/")) - 1]
-    print(filename, subdir)
+
+    params = tbridge.params_from_filename(full_filename)
+
+    bins_x, bins_y = config[x_key], config[y_key]
+
+    x = tbridge.bin_index(params[x_index], bins_x)
+    y = tbridge.bin_index(params[y_index], bins_y)
+
+    # filename = full_filename.split("/")[len(full_filename.split("/")) - 1]
+
+    filename_suffix = full_filename.split("_")[len(full_filename.split("_")) - 1].split(".")[0] + "_median.fits"
+    filename = str(x) + "_" + str(y) + "_" + filename_suffix
+
     prof_list = tbridge.tables_from_file(full_filename)
-
     bin_max_value = bin_max(prof_list)
-
     prof_list = as_interpolations(prof_list)
 
     med_data = tbridge.get_median(prof_list, bin_max_value)
@@ -174,22 +183,25 @@ def __median_processing(full_filename, out_dir="", subdir="", iterations=101):
     tbridge.save_medians(med_data, bootstrap_data, output_filename=out_dir + subdir + filename)
 
 
-def median_pipeline(in_dir, multiprocess=False, cores=1, iterations=101):
+def median_pipeline(in_dir, config=tbridge.default_config_params(), multiprocess=False, cores=1, iterations=101):
 
     out_dir = in_dir[:len(in_dir) - 1] + "_medians/"
 
     subdirs = os.listdir(in_dir)
     tbridge.generate_file_structure(out_dir, subdirs)
 
-    for subdir in subdirs:
+    for subdir in subdirs[:]:
         subdir = subdir + "/"
 
         bins = [str(b) for b in Path(in_dir + subdir).rglob('*.fits')]
 
+        print(subdir, " | Bins:", len(bins))
+
         if multiprocess:
             pool = mp.Pool(processes=cores)
-            results = [pool.apply_async(__median_processing, (b, out_dir, subdir, iterations)) for b in bins]
+            results = [pool.apply_async(__median_processing, (b, config, out_dir, subdir, iterations)) for b in bins]
             [res.get() for res in results]
         else:
             for b in bins:
-                __median_processing(b, out_dir, subdir, iterations)
+                __median_processing(b, config, out_dir, subdir, iterations)
+
