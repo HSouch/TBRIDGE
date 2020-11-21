@@ -4,6 +4,8 @@ from multiprocessing import TimeoutError
 
 from numpy import transpose
 
+import sys
+
 
 def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None, progress_bar=False,
              verbose=False, multiprocess_level='obj'):
@@ -31,6 +33,8 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
 
     binned_objects = tbridge.bin_catalog(config_values["CATALOG"], config_values)
     max_bins = len(binned_objects) if max_bins is None else max_bins
+
+    print(len(binned_objects), "to process.")
 
     if multiprocess_level == 'bin':
         pool = mp.Pool(processes=config_values["CORES"])
@@ -77,7 +81,10 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
 
             results = [pool.apply_async(_simulate_single_model, (models[i], config_values, provided_bgs))
                        for i in range(0, len(models))]
-            model_list = [res.get() for res in results]
+            model_list = [res.get(timeout=config_values["ALARM_TIME"]) for res in results]
+
+            print("Terminating pool")
+            pool.terminate()
 
         # Get all profile lists from our developed models.
         if verbose:
@@ -88,11 +95,16 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
                                         (model_list[i][0], config_values, model_list[i][1]))
                        for i in range(0, len(model_list))]
 
-            full_profile_list = []
-            try:
-                full_profile_list = [res.get(timeout=int(config_values["ALARM_TIME"] * 5)) for res in results]
-            except TimeoutError:
-                print("Timeout error reached! Continuing (I think).")
+            full_profile_list, timed_out_rows = [], []
+            for res in results:
+                try:
+                    full_profile_list.append(res.get(timeout=config_values["ALARM_TIME"]))
+                except TimeoutError:
+                    print("TimeoutError")
+                    continue
+
+            print("Terminating pool")
+            pool.terminate()
 
         # If nothing worked just go to the next bin
         if full_profile_list is None or len(full_profile_list) == 0:
@@ -109,7 +121,6 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
             profile_list[i] = row[0]
 
         bg_info = transpose(bg_info)
-        print(bg_info)
 
         # Reformat into a column-format
         profile_list = _reformat_profile_list(profile_list)
