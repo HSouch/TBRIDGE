@@ -10,6 +10,8 @@ except ImportError:
 
 from tqdm import tqdm
 
+import warnings
+import time
 import sys
 import signal
 
@@ -31,10 +33,6 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
     verbose = False if config is None else config["VERBOSE"]
     test_verbose = False if config is None else config["TEST_VERBOSE"]
 
-    if test_verbose:
-        print("Verbose", verbose, test_verbose, "Linear:", linear, "Step:", step, "Use Alarm:", use_alarm,
-              "Alarm Time:", alarm_time)
-
     # Get centre of image and cutout halfwidth
     if centre_method == 'standard':
         centre = (data.shape[0]/2, data.shape[1]/2)
@@ -47,11 +45,11 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
     fitting_list = []
 
-    if use_alarm:
-        original_handler = signal.signal(signal.SIGALRM, TimeoutHandler)
-        signal.alarm(alarm_time)
-    else:
-        original_handler = None
+    # if use_alarm:
+    #     original_handler = signal.signal(signal.SIGALRM, TimeoutHandler)
+    #     signal.alarm(alarm_time)
+    # else:
+    #     original_handler = None
 
     # First, try obtaining morphological properties from the data and fit using that starting ellipse
     try:
@@ -72,29 +70,15 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
     except KeyboardInterrupt:
         sys.exit(1)
-    except RuntimeError:
+    except (RuntimeError, ValueError):
         fail_count += 1
         if fail_count >= max_fails:
             return []
-    except TimeoutException:
-        signal.signal(signal.SIGALRM, original_handler)
-        if verbose:
-            print("Timeout reached due to signal alarm")
-        fail_count += 1
-        if fail_count >= max_fails:
-            return []
-    except:
-        fail_count += 1
-        if fail_count >= max_fails:
-            return []
-
-    if use_alarm:
-        signal.alarm(alarm_time)
 
     # If that fails, test a parameter space of starting ellipses
     try:
         for angle in range(0, 180, 45):
-            for sma in range(1, 26, 5):
+            for sma in range(2, 26, 5):
                 for eps in (0.3, 0.5, 0.9):
                     geometry = EllipseGeometry(float(centre[0]), float(centre[1]), eps=eps,
                                                sma=sma, pa=angle * pi / 180.)
@@ -102,13 +86,12 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
                     fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=step, linear=linear,
                                                   maxrit=cutout_halfwidth / 3)
                     if len(fitting_list) > 0:
-                        if use_alarm:
-                            signal.alarm(0)
                         return fitting_list
 
     except KeyboardInterrupt:
         sys.exit(1)
-    except RuntimeError:
+    except (RuntimeError, ValueError):
+        # print("RuntimeError or ValueError")
         fail_count += 1
         if fail_count >= max_fails:
             return []
@@ -116,20 +99,19 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
         fail_count += 1
         if fail_count >= max_fails:
             return []
-    except TimeoutException:
-        signal.alarm(0)
-        if verbose:
-            print("Timeout reached due to signal alarm")
-        fail_count += 1
-        if fail_count >= max_fails:
-            return []
-    except:
-        fail_count += 1
-        if fail_count >= max_fails:
-            return []
 
-    if use_alarm:
-        signal.alarm(0)
+
+    # except TimeoutException:
+    #     signal.alarm(0)
+    #     if verbose:
+    #         print("Timeout reached due to signal alarm")
+    #     fail_count += 1
+    #     if fail_count >= max_fails:
+    #         return []
+    # except:
+    #     fail_count += 1
+    #     if fail_count >= max_fails:
+    #         return []
 
     return fitting_list
 
@@ -174,7 +156,7 @@ def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, a
     return output_profiles
 
 
-def extract_profiles_single_row(cutouts, config, bg_info=None,):
+def extract_profiles_single_row(cutouts, config, bg_info=None):
     """
     Extract profiles for a single row.
     :param cutouts: A list of cutouts to extract. (Single row)
