@@ -320,8 +320,8 @@ def tables_from_file(filename):
 
 def bin_index(val, bins):
     """ Get bin index for a given value and a set of bin parameters """
-    for index in range(0, len(bins)):
-        if val < bins[index]:
+    for index in range(0, len(bins) - 1):
+        if bins[index] < val < bins[index + 1]:
             return index
     return len(bins)
 
@@ -334,3 +334,15 @@ def generate_file_structure(out_dir, subdirs):
     for subdir in subdirs:
         if not os.path.isdir(out_dir + subdir + "/"):
             os.mkdir(out_dir + subdir + "/")
+
+
+def params_from_filename(filename):
+    """ Return the parameters inferred from the input filename (based on TBRIDGE formatting)."""
+    filename_no_path = filename.split("/")[len(filename.split("/")) - 1]
+    splits = filename_no_path.split("_")
+    splits = splits[1:len(splits) - 1]
+    params = []
+    for split in splits:
+        low_high = split.split("-")
+        params.append((float(low_high[0]) + float(low_high[1])) / 2)
+    return params
