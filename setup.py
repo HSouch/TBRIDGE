@@ -7,7 +7,7 @@ with open("README.md", "r") as readme:
 
 setuptools.setup(
     name="tbridge",
-    version="1.1.1",
+    version="1.1.2",
     author="Harrison Souchereau",
     author_email="harrison.souchereau@yale.edu",
     description="Testing BRIghtness Deviations in Galaxy profile Extractions",
