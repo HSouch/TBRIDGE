@@ -1,12 +1,10 @@
 from numpy import max, pi, count_nonzero, log
 from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
-from photutils.isophote import Ellipse, EllipseGeometry
+# from photutils.isophote import Ellipse, EllipseGeometry
 
-try:
-    from .isophote_l import Ellipse, EllipseGeometry
-except ImportError:
-    pass
+from .isophote_l import Ellipse, EllipseGeometry
+
 
 from tqdm import tqdm
 
@@ -70,7 +68,7 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
     except KeyboardInterrupt:
         sys.exit(1)
-    except (RuntimeError, ValueError):
+    except (RuntimeError, ValueError, OverflowError):
         fail_count += 1
         if fail_count >= max_fails:
             return []
@@ -90,7 +88,7 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
     except KeyboardInterrupt:
         sys.exit(1)
-    except (RuntimeError, ValueError):
+    except (RuntimeError, ValueError, OverflowError):
         # print("RuntimeError or ValueError")
         fail_count += 1
         if fail_count >= max_fails:
@@ -99,19 +97,6 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
         fail_count += 1
         if fail_count >= max_fails:
             return []
-
-
-    # except TimeoutException:
-    #     signal.alarm(0)
-    #     if verbose:
-    #         print("Timeout reached due to signal alarm")
-    #     fail_count += 1
-    #     if fail_count >= max_fails:
-    #         return []
-    # except:
-    #     fail_count += 1
-    #     if fail_count >= max_fails:
-    #         return []
 
     return fitting_list
 
