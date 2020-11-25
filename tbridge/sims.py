@@ -83,7 +83,8 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
                        for i in range(0, len(models))]
             model_list = [res.get(timeout=config_values["ALARM_TIME"]) for res in results]
 
-            print("Terminating pool")
+            if verbose:
+                print("Terminating simulation pool")
             pool.terminate()
 
         # Get all profile lists from our developed models.
@@ -103,7 +104,8 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
                     print("TimeoutError")
                     continue
 
-            print("Terminating pool")
+            if verbose:
+                print("Terminating extraction pool")
             pool.terminate()
 
         # If nothing worked just go to the next bin
@@ -147,7 +149,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
             print("Extracting Profiles for: ", b.bin_params)
 
         profile_list = tbridge.extract_profiles((convolved_models, noisy_models, bg_added_models), config_values,
-                                                progress_bar=progress_bar, use_alarm=use_alarm, alarm_time=alarm_time)
+                                                progress_bar=progress_bar)
     if verbose:
         print("Profiles extracted, wrapping up: ", b.bin_params)
 
