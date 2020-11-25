@@ -1,4 +1,4 @@
-from numpy import max, pi, count_nonzero, log
+from numpy import max, pi, log
 from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
 # from photutils.isophote import Ellipse, EllipseGeometry
@@ -8,14 +8,10 @@ from .isophote_l import Ellipse, EllipseGeometry
 
 from tqdm import tqdm
 
-import warnings
-import time
 import sys
-import signal
 
 
-def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_method='standard',
-                     fit_method='standard', maxrit=None):
+def isophote_fitting(data, config=None, centre_method='standard', fit_method='standard', maxrit=None):
     """
     Generates a table of results from isophote fitting analysis. This uses photutils Isophote procedure, which is
     effectively IRAF's Ellipse() method.
@@ -43,12 +39,6 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
     fitting_list = []
 
-    # if use_alarm:
-    #     original_handler = signal.signal(signal.SIGALRM, TimeoutHandler)
-    #     signal.alarm(alarm_time)
-    # else:
-    #     original_handler = None
-
     # First, try obtaining morphological properties from the data and fit using that starting ellipse
     try:
         morph_cat = data_properties(log(data))
@@ -68,7 +58,7 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
     except KeyboardInterrupt:
         sys.exit(1)
-    except (RuntimeError, ValueError, OverflowError):
+    except (RuntimeError, ValueError, OverflowError, IndexError):
         fail_count += 1
         if fail_count >= max_fails:
             return []
@@ -88,7 +78,7 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
 
     except KeyboardInterrupt:
         sys.exit(1)
-    except (RuntimeError, ValueError, OverflowError):
+    except (RuntimeError, ValueError, OverflowError, IndexError):
         # print("RuntimeError or ValueError")
         fail_count += 1
         if fail_count >= max_fails:
@@ -101,7 +91,7 @@ def isophote_fitting(data, config=None, use_alarm=False, alarm_time=60, centre_m
     return fitting_list
 
 
-def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, alarm_time=60, maxrit=None):
+def extract_profiles(cutout_list, config, progress_bar=False, maxrit=None):
     """
     Extract all available profiles
     :param cutout_list: A 2D list of cutouts. The length of each column needs to be the same!
@@ -119,7 +109,7 @@ def extract_profiles(cutout_list, config, progress_bar=False, use_alarm=False, a
         local_profiles = []
         for j in range(0, len(cutout_list)):
             try:
-                t = isophote_fitting(cutout_list[j][index], config, use_alarm=use_alarm, alarm_time=alarm_time)
+                t = isophote_fitting(cutout_list[j][index], config)
             except TimeoutException:
                 continue
             if len(t) > 0:
@@ -153,7 +143,7 @@ def extract_profiles_single_row(cutouts, config, bg_info=None):
     output_profiles = []
 
     for i in range(0, len(cutouts)):
-        t = isophote_fitting(cutouts[i], config, use_alarm=False)
+        t = isophote_fitting(cutouts[i], config)
 
         if len(t) > 0:
             output_profiles.append(t.to_table())
