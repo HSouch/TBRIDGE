@@ -5,7 +5,7 @@ from astropy.io import fits
 from astropy.wcs import wcs
 from astropy.table import Table
 
-from numpy import arange, array, sqrt, str
+from numpy import arange, array, sqrt, str, save, load
 from numpy.random import choice, uniform
 
 
@@ -346,3 +346,17 @@ def params_from_filename(filename):
         low_high = split.split("-")
         params.append((float(low_high[0]) + float(low_high[1])) / 2)
     return params
+
+
+def save_array(arr, filename="arr.npy"):
+    """ Save an array (npy binary format)"""
+    save(filename, arr)
+
+
+def load_array(filename):
+    """ Load an array """
+    try:
+        return load(filename)
+    except FileNotFoundError:
+        print("File: ", filename, " not found. Returning NoneType")
+        return None
