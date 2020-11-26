@@ -1,3 +1,4 @@
+import tbridge
 import os
 from pathlib import Path
 
@@ -174,14 +175,16 @@ def generate_output_report(out_dir="", t_final=0., t_init=0., catalog_filename="
     output_report.writelines(lines)
 
 
-def save_profiles(profile_list, bin_info, outdir, keys):
+def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None):
     """
     Saves a set of profiles into a properly formatted output directory, with proper filename format.
     :param profile_list: The list of profiles (shape is m x n, where m is the number of different models for each
     object and n is the number of objects i.e. m rows of profiles from n objects.
     :param bin_info: bin information for profile formatting.
-    :param outdir: the output directory to save the files to.
+    :param out_dir: the output directory to save the files to.
     :param keys: the keys to generate subdirectory and file names with.
+    :param bg_info: Array of associated background info for the extracted profiles. Saves to its own
+                    subdirectory.
     :return:
     """
     def generate_file_prefix(bin_params):
@@ -195,12 +198,12 @@ def save_profiles(profile_list, bin_info, outdir, keys):
 
     # Generate output structure
     subdirs = []
-    if not os.path.isdir(outdir):
-        os.mkdir(outdir)
+    if not os.path.isdir(out_dir):
+        os.mkdir(out_dir)
     for key in keys:
         subdir = key + "_profiles/"
-        if not os.path.isdir(outdir + subdir):
-            os.mkdir(outdir + subdir)
+        if not os.path.isdir(out_dir + subdir):
+            os.mkdir(out_dir + subdir)
         subdirs.append(subdir)
 
     filename_prefix = generate_file_prefix(bin_info)
@@ -213,9 +216,14 @@ def save_profiles(profile_list, bin_info, outdir, keys):
         out_hdulist = fits.HDUList()
         for prof in profiles:
             out_hdulist.append(fits.BinTableHDU(Table([prof[col] for col in valid_colnames],
-                                   names=valid_colnames)))
+                                                      names=valid_colnames)))
 
-        out_hdulist.writeto(outdir + subdirs[i] + out_filename, overwrite=True)
+        out_hdulist.writeto(out_dir + subdirs[i] + out_filename, overwrite=True)
+
+    if bg_info is not None:
+        if not os.path.isdir(out_dir + "bg_info/"):
+            os.mkdir(out_dir + "bg_info/")
+        tbridge.save_array(bg_info, out_dir + "bg_info/" + filename_prefix + "bgs.npy")
 
     return None
 
