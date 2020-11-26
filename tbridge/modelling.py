@@ -141,8 +141,10 @@ def add_to_locations_simple(models, config_values, convolve=True):
             if convolve:
                 convolved_model = convolve2d(models[i], psf, mode='same')
                 convolved_models.append(convolved_model)
+                bg_added_model = convolved_model + image_cutout
+            else:
+                bg_added_model = models[i] + image_cutout
 
-            bg_added_model = models[i] + image_cutout
             bg_added_models.append(bg_added_model)
 
     if convolve:
