@@ -1,14 +1,15 @@
 import tbridge
+import time
 import multiprocessing as mp
 from multiprocessing import TimeoutError
 
-from numpy import transpose
+from numpy import transpose, round
 
 import sys
 
 
-def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None, progress_bar=False,
-             verbose=False, multiprocess_level='obj'):
+def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None,
+             progress_bar=False, multiprocess_level='obj'):
     """
     Runs the entire simulation pipeline assuming certain data exists.
     :param config_values: Values from properly loaded configuration file.
@@ -16,7 +17,6 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
     :param separate_mags: Optional array of magnitudes.
     :param provided_bgs: A set of provided background cutouts [OPTIONAL].
     :param progress_bar: Have a TQDM progress bar.
-    :param verbose: Have command-line output printing out at various steps
     :param multiprocess_level: Where in the simulations to divide into cores
         'obj'  - Divide at the object level, where each core handles a single object in each bin.
         'bin'  - Divide at the bin level, so each core is responsible for a single bin
@@ -34,7 +34,9 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
     binned_objects = tbridge.bin_catalog(config_values["CATALOG"], config_values)
     max_bins = len(binned_objects) if max_bins is None else max_bins
 
-    print(len(binned_objects), "to process.")
+    verbose = config_values["VERBOSE"]
+    if verbose:
+        print(max_bins, "bins to process.")
 
     if multiprocess_level == 'bin':
         pool = mp.Pool(processes=config_values["CORES"])
@@ -61,8 +63,9 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
     :return:
     """
 
+    t_start = time.time()
+
     verbose = config_values["VERBOSE"]
-    use_alarm, alarm_time = config_values["USE_ALARM"], config_values["ALARM_TIME"]
 
     # Load in information
     keys, columns = b.return_columns()
@@ -72,7 +75,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
 
     if multiprocess:
         if verbose:
-            print("Simulating Models for: ", b.bin_params)
+            print("Simulating", config_values["N_MODELS"], "models for: ", b.bin_params)
 
         # Simulated galaxies using multiprocessing
         with mp.Pool(processes=config_values["CORES"]) as pool:
@@ -83,8 +86,6 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
                        for i in range(0, len(models))]
             model_list = [res.get(timeout=config_values["ALARM_TIME"]) for res in results]
 
-            if verbose:
-                print("Terminating simulation pool")
             pool.terminate()
 
         # Get all profile lists from our developed models.
@@ -104,8 +105,6 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
                     print("TimeoutError")
                     continue
 
-            if verbose:
-                print("Terminating extraction pool")
             pool.terminate()
 
         # If nothing worked just go to the next bin
@@ -150,19 +149,28 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
 
         profile_list = tbridge.extract_profiles((convolved_models, noisy_models, bg_added_models), config_values,
                                                 progress_bar=progress_bar)
-    if verbose:
-        print("Profiles extracted, wrapping up: ", b.bin_params)
-
-    # Estimate backgrounds and generate bg-subtracted profile list
-    backgrounds = bg_info[1]
-    bgsub_profiles = tbridge.subtract_backgrounds(profile_list[2], backgrounds)
-    profile_list.append(bgsub_profiles)
 
     # Only save the profile in this bin if we have at least 1 set of profiles to save
     if len(profile_list[0]) > 0:
+        if verbose:
+            print(len(profile_list[0]), "profiles extracted, wrapping up: ", b.bin_params)
+
+        # Estimate backgrounds and generate bg-subtracted profile list
+        backgrounds = bg_info[1]
+        bgsub_profiles = tbridge.subtract_backgrounds(profile_list[2], backgrounds)
+        profile_list.append(bgsub_profiles)
+
         # Save profiles
-        tbridge.save_profiles(profile_list, bin_info=b.bin_params,
-                              outdir=config_values["OUT_DIR"], keys=["bare", "noisy", "bgadded", "bgsub"])
+        tbridge.save_profiles(profile_list,
+                              bin_info=b.bin_params,
+                              out_dir=config_values["OUT_DIR"],
+                              keys=["bare", "noisy", "bgadded", "bgsub"],
+                              bg_info=bg_info)
+
+    if verbose:
+        print("Finished", b.bin_params, "-- Time Taken:", round((time.time() - t_start) / 60, 2), "minutes.")
+        if multiprocess:
+            print()
 
 
 def _simulate_single_model(sersic_model, config_values, provided_bgs=None):
@@ -186,6 +194,7 @@ def _simulate_single_model(sersic_model, config_values, provided_bgs=None):
 
 
 def _reformat_profile_list(profile_list, required_length=3):
+    """ Put the profiles (in a row-format) into the proper column format for saving. """
 
     reformatted = [[] for i in range(0, len(profile_list[0]))]
 
