@@ -8,7 +8,7 @@ from numpy import transpose, round
 import sys
 
 
-def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None,
+def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None, provided_psfs=None,
              progress_bar=False, multiprocess_level='obj'):
     """
     Runs the entire simulation pipeline assuming certain data exists.
@@ -16,6 +16,7 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
     :param max_bins: The number of bins to process (useful if running tests).
     :param separate_mags: Optional array of magnitudes.
     :param provided_bgs: A set of provided background cutouts [OPTIONAL].
+    :param provided_psfs: A set of provided PSFs related to the provided backgrounds [OPTIONAL].
     :param progress_bar: Have a TQDM progress bar.
     :param multiprocess_level: Where in the simulations to divide into cores
         'obj'  - Divide at the object level, where each core handles a single object in each bin.
@@ -37,6 +38,9 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
     verbose = config_values["VERBOSE"]
     if verbose:
         print(max_bins, "bins to process.")
+
+    if config_values["SAME_BGS"]:
+        provided_bgs, provided_psfs = tbridge.get_backgrounds(config_values, n=50)
 
     if multiprocess_level == 'bin':
         pool = mp.Pool(processes=config_values["CORES"])
