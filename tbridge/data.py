@@ -6,8 +6,8 @@ from astropy.io import fits
 from astropy.wcs import wcs
 from astropy.table import Table
 
-from numpy import arange, array, sqrt, str, save, load
-from numpy.random import choice, uniform
+from numpy import arange, array, sqrt, str, save, load, ceil
+from numpy.random import choice, uniform, randint
 
 
 def get_closest_psf(psfs, obj_ra, obj_dec):
@@ -368,3 +368,44 @@ def load_array(filename):
     except FileNotFoundError:
         print("File: ", filename, " not found. Returning NoneType")
         return None
+
+
+def get_backgrounds(config_values, n=50, return_psfs=True):
+
+    image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
+    size = config_values["SIZE"]
+
+    with fits.open(psf_filename) as psfs:
+        image_filenames = tbridge.get_image_filenames(image_dir)
+
+        psf_list, bg_added_models = [], []
+
+        for i in range(0, n):
+            model_halfwidth = ceil(size / 2)
+
+            image_filename = choice(image_filenames)
+
+            image = tbridge.select_image(image_filename)
+            image_wcs = tbridge.get_wcs(image_filename)
+
+            if image is None:
+                continue
+
+            c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
+            c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
+            x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
+            y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
+
+            image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
+
+            if return_psfs:
+                ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
+                psf = tbridge.get_closest_psf(psfs, ra, dec).data
+                psf_list.append(psf)
+
+            bg_added_models.append(image_cutout)
+
+    if return_psfs:
+        return bg_added_models, psf_list
+    else:
+        return bg_added_models
