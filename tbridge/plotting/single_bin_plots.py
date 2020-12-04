@@ -37,7 +37,10 @@ def single_bin_plot(table_arrays, colours=None, ind_profile_alpha=1, medians=Fal
 
             plt.plot(median_sma, median_intens, lw=3, c=colours[i])
 
-    plt.ylim(ylim[0], ylim[1])
+    if ylim is None:
+        pass
+    else:
+        plt.ylim(ylim[0], ylim[1])
     plt.xlim(1,)
     plt.xscale("log")
 
