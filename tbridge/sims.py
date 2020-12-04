@@ -39,7 +39,7 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
     if verbose:
         print(max_bins, "bins to process.")
 
-    if config_values["SAME_BGS"]:
+    if config_values["SAME_BGS"] and provided_bgs is None:
         provided_bgs, provided_psfs = tbridge.get_backgrounds(config_values, n=50)
 
     if multiprocess_level == 'bin':
@@ -182,11 +182,11 @@ def _simulate_single_model(sersic_model, config_values, provided_bgs=None):
     model = [sersic_model]
     if provided_bgs is None:
         bg_added_model, convolved_model = tbridge.add_to_locations_simple(model, config_values)
-        bg_added_model, bg_info = tbridge.mask_cutouts(bg_added_model)
     else:
         convolved_model = tbridge.convolve_models(model, config_values)
         bg_added_model = tbridge.add_to_provided_backgrounds(convolved_model, provided_bgs)
-        bg_added_model, bg_info = tbridge.mask_cutouts(bg_added_model)
+
+    masked_model, bg_info = tbridge.mask_cutouts(bg_added_model)
 
     # bg_info will be the mean, median, and std, in that order. (see tbridge.mask_cutouts)
     bg_info = [bg_info[0][0], bg_info[1][0], bg_info[2][0]]
@@ -194,10 +194,10 @@ def _simulate_single_model(sersic_model, config_values, provided_bgs=None):
 
     # print(type(convolved_model), type(noisy_model), type(bg_added_model), type(convolved_model[0]))
 
-    return [convolved_model[0], noisy_model[0], bg_added_model[0]], bg_info
+    return [convolved_model[0], noisy_model[0], masked_model[0]], bg_info
 
 
-def _reformat_profile_list(profile_list, required_length=3):
+def _reformat_profile_list(profile_list):
     """ Put the profiles (in a row-format) into the proper column format for saving. """
 
     reformatted = [[] for i in range(0, len(profile_list[0]))]
