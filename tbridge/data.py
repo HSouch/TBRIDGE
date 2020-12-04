@@ -331,7 +331,7 @@ def bin_index(val, bins):
     for index in range(0, len(bins) - 1):
         if bins[index] < val < bins[index + 1]:
             return index
-    return len(bins)
+    return len(bins) - 1
 
 
 def generate_file_structure(out_dir, subdirs):
@@ -409,3 +409,10 @@ def get_backgrounds(config_values, n=50, return_psfs=True):
         return bg_added_models, psf_list
     else:
         return bg_added_models
+
+
+def as_dir(directory):
+    if directory[-1] is not '/':
+        return directory + "/"
+    else:
+        return directory
