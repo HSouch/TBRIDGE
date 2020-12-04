@@ -6,7 +6,7 @@ from tqdm import tqdm
 from astropy.table import Table
 from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
-from numpy import copy, ndarray, floor
+from numpy import copy, ndarray, floor, nan
 from photutils import detect_threshold, detect_sources, deblend_sources, make_source_mask
 
 
@@ -35,7 +35,7 @@ def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=5, omit_centre=True)
     n_masked = sum(source_mask)
 
     masked_cutout = copy(cutout)
-    masked_cutout[source_mask] = bg_median
+    masked_cutout[source_mask] = nan
 
     mask_data["BG_MEAN"] = bg_mean
     mask_data["BG_MEDIAN"] = bg_median
