@@ -9,6 +9,7 @@ from astropy.table import Table
 
 import tbridge
 import os
+import shutil
 from pathlib import Path
 
 
@@ -152,13 +153,61 @@ def save_medians(median_data, bootstrap_data=None, output_filename="medians.fits
     out_hdulist.writeto(output_filename, overwrite=True)
 
 
+def index_format(in_dir, x_bins, y_bins, out_dir="dir_copy/", indices=(1, 2), method='duplicate'):
+    """
+    Duplicate a directory but with the files in index format.
+    :param in_dir: Input directory of median objects
+    :param out_dir: Only needed if running in duplicate mode. Duplicates files in new directory
+    :param x_bins: x-axis bin values (usually grabbed from config file)
+    :param y_bins: y-axis bin values
+    :param indices: When splitting the file, the indices correspond to x and y parameter locations.
+        For example, if your filename is: bin_9.2-9.6_0.3-0.5_0.0-0.5_bare.fits
+        and you want the x parameter to be 9.2-9.6 and the y parameter to be 0.3-0.5, you would
+        set:
+            indices=[1,2]
+    :param method: duplicate directory or rename files
+        'duplicate' : generate a new directory
+        'rename' : Rename the files in input directory
+    :return:
+    """
+    subdirs = os.listdir(in_dir)
+
+    if method == 'duplicate' and not os.path.isdir(out_dir):
+        os.mkdir(out_dir)
+
+    for subdir in subdirs:
+
+        subdir += "/"
+        files = os.listdir(in_dir + subdir)
+
+        if method == 'duplicate' and not os.path.isdir(out_dir + subdir):
+            os.mkdir(out_dir + subdir)
+
+        for f in files:
+            splits = f.split("_")
+            x_split = splits[indices[0]].split("-")
+            x_val = (float(x_split[0]) + float(x_split[1])) / 2
+            y_split = splits[indices[1]].split("-")
+            y_val = (float(y_split[0]) + float(y_split[1])) / 2
+
+            x_index, y_index = tbridge.bin_index(x_val, x_bins), tbridge.bin_index(y_val, y_bins)
+
+            # print(f, "|", x_val, x_index, y_val, y_index)
+            new_filename = str(x_index) + "_" + str(y_index) + "_" + f.split("_")[-1]
+            if method == 'duplicate':
+                shutil.copyfile(in_dir + subdir + f, out_dir + subdir + new_filename)
+            elif method == 'rename':
+                os.rename(in_dir + subdir + f, in_dir + subdir + new_filename)
+
+
 def __median_processing(full_filename, config, out_dir="", subdir="", iterations=101,
-                        x_key="REDSHIFT_BINS", y_key="MASS_BINS", x_index=1, y_index=0):
+                        x_key="REDSHIFT_BINS", y_key="MASS_BINS", x_index=1, y_index=0, index_format=True):
     """
     Run through the median processing on a given filename.
     :param full_filename:
     :param out_dir:
     :param subdir:
+    :param index_format: Save files in an index format (x_y_suffix.fits)
     :return:
     """
 
@@ -171,8 +220,10 @@ def __median_processing(full_filename, config, out_dir="", subdir="", iterations
 
     # filename = full_filename.split("/")[len(full_filename.split("/")) - 1]
 
-    filename_suffix = full_filename.split("_")[len(full_filename.split("_")) - 1].split(".")[0] + "_median.fits"
-    filename = str(x) + "_" + str(y) + "_" + filename_suffix
+    # filename_suffix = full_filename.split("_")[len(full_filename.split("_")) - 1].split(".")[0] + "_median.fits"
+    # filename = str(x) + "_" + str(y) + "_" + filename_suffix
+
+    filename = full_filename.split("/")[-1]
 
     prof_list = tbridge.tables_from_file(full_filename)
     bin_max_value = bin_max(prof_list)
@@ -205,3 +256,37 @@ def median_pipeline(in_dir, config=tbridge.default_config_params(), multiprocess
             for b in bins:
                 __median_processing(b, config, out_dir, subdir, iterations)
 
+
+def load_median_info(filename):
+
+    median_data = {}
+
+    hdul = fits.open(filename)
+    med, l, u = Table.read(hdul[1]), Table.read(hdul[2]), Table.read(hdul[3])
+
+    median_data["MED_SMA"] = med["SMA"]
+    median_data["MED_INTENS"] = med["INTENS"]
+
+    median_data["MED_ADJ"] = tbridge.adjust_profile(med["SMA"], med["INTENS"])
+
+    median_data["L_1SIG"] = (l["SMA"], l["INTENS_1SIG"])
+    median_data["U_1SIG"] = (u["SMA"], u["INTENS_1SIG"])
+    median_data["L_1SIG_ADJ"] = tbridge.adjust_profile(l["SMA"], l["INTENS_1SIG"])
+    median_data["U_1SIG_ADJ"] = tbridge.adjust_profile(u["SMA"], u["INTENS_1SIG"])
+
+    median_data["L_2SIG"] = (l["SMA"], l["INTENS_2SIG"])
+    median_data["U_2SIG"] = (u["SMA"], u["INTENS_2SIG"])
+    median_data["L_2SIG_ADJ"] = tbridge.adjust_profile(l["SMA"], l["INTENS_2SIG"])
+    median_data["U_2SIG_ADJ"] = tbridge.adjust_profile(u["SMA"], u["INTENS_2SIG"])
+
+    median_data["L_3SIG"] = (l["SMA"], l["INTENS_3SIG"])
+    median_data["U_3SIG"] = (u["SMA"], u["INTENS_3SIG"])
+    median_data["L_3SIG_ADJ"] = tbridge.adjust_profile(l["SMA"], l["INTENS_3SIG"])
+    median_data["U_3SIG_ADJ"] = tbridge.adjust_profile(u["SMA"], u["INTENS_3SIG"])
+
+    median_data["L_5SIG"] = (l["SMA"], l["INTENS_5SIG"])
+    median_data["U_5SIG"] = (u["SMA"], u["INTENS_5SIG"])
+    median_data["L_5SIG_ADJ"] = tbridge.adjust_profile(l["SMA"], l["INTENS_5SIG"])
+    median_data["U_5SIG_ADJ"] = tbridge.adjust_profile(u["SMA"], u["INTENS_5SIG"])
+
+    return median_data
