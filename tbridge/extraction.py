@@ -79,6 +79,7 @@ def isophote_fitting(data, config=None, centre_method='standard', fit_method='st
     except KeyboardInterrupt:
         sys.exit(1)
     except (RuntimeError, ValueError, OverflowError, IndexError):
+
         # print("RuntimeError or ValueError")
         fail_count += 1
         if fail_count >= max_fails:
@@ -91,12 +92,89 @@ def isophote_fitting(data, config=None, centre_method='standard', fit_method='st
     return fitting_list
 
 
-def extract_profiles(cutout_list, config, progress_bar=False, maxrit=None):
+def isophote_fitting_tester(data, config=None, centre_method='standard', fit_method='standard', maxrit=None):
+    """
+    Identical to tbridge.isophote_fitting() but with far fewer exception handling cases to check for issues in
+    isophote fitting (the internal code from Photutils).
+    """
+    # Set-up failsafe in case of strange infinte loops in photutils
+    # warnings.filterwarnings("error")
+
+    fail_count, max_fails = 0, 1000
+    linear = False if config is None else config["LINEAR"]
+    step = 1. if config is None else config["LINEAR_STEP"]
+    verbose = False if config is None else config["VERBOSE"]
+    test_verbose = False if config is None else config["TEST_VERBOSE"]
+
+    # Get centre of image and cutout halfwidth
+    if centre_method == 'standard':
+        centre = (data.shape[0] / 2, data.shape[1] / 2)
+    elif centre_method == 'max':
+        centre = unravel_index(argmax(data), data.shape)
+    else:
+        centre = (data.shape[0] / 2, data.shape[1] / 2)
+
+    cutout_halfwidth = max((ceil(data.shape[0] / 2), ceil(data.shape[1] / 2)))
+
+    fitting_list = []
+
+    # First, try obtaining morphological properties from the data and fit using that starting ellipse
+    try:
+        morph_cat = data_properties(log(data))
+        r = 2.0
+        pos = (morph_cat.xcentroid.value, morph_cat.ycentroid.value)
+
+        a = morph_cat.semimajor_axis_sigma.value * r
+        b = morph_cat.semiminor_axis_sigma.value * r
+        theta = morph_cat.orientation.value
+
+        geometry = EllipseGeometry(pos[0], pos[1], sma=a, eps=(1 - (b / a)), pa=theta)
+        flux = Ellipse(data, geometry)
+        fitting_list = flux.fit_image(maxit=100, maxsma=cutout_halfwidth, step=step, linear=linear,
+                                      maxrit=cutout_halfwidth / 3)
+        if len(fitting_list) > 0:
+            return fitting_list
+
+    except KeyboardInterrupt:
+        sys.exit(1)
+    except (OverflowError):
+        fail_count += 1
+        if fail_count >= max_fails:
+            return []
+
+    # If that fails, test a parameter space of starting ellipses
+    try:
+        for angle in range(0, 180, 45):
+            for sma in range(2, 26, 5):
+                for eps in (0.3, 0.5, 0.9):
+                    geometry = EllipseGeometry(float(centre[0]), float(centre[1]), eps=eps,
+                                               sma=sma, pa=angle * pi / 180.)
+                    flux = Ellipse(data, geometry)
+                    fitting_list = flux.fit_image(maxsma=cutout_halfwidth, step=step, linear=linear,
+                                                  maxrit=cutout_halfwidth / 3)
+                    if len(fitting_list) > 0:
+                        return fitting_list
+
+    except KeyboardInterrupt:
+        sys.exit(1)
+    except (OverflowError):
+
+        # print("RuntimeError or ValueError")
+        fail_count += 1
+        if fail_count >= max_fails:
+            return []
+
+    return fitting_list
+
+
+def extract_profiles(cutout_list, config, progress_bar=False, maxrit=None, isophote_testing=False):
     """
     Extract all available profiles
     :param cutout_list: A 2D list of cutouts. The length of each column needs to be the same!
     :param config: Configuration parameters
     :param progress_bar: Include a fancy progress bar with tqdm if set to True
+    :param isophote_testing: Test whether isophote is crashing by passing fewer exception clauses.
+        Should ONLY be used by developers working on the isophote code.
     :return:
     """
 
@@ -109,7 +187,10 @@ def extract_profiles(cutout_list, config, progress_bar=False, maxrit=None):
         local_profiles = []
         for j in range(0, len(cutout_list)):
             try:
-                t = isophote_fitting(cutout_list[j][index], config)
+                if isophote_testing:
+                    t = isophote_fitting_tester(cutout_list[j][index], config)
+                else:
+                    t = isophote_fitting(cutout_list[j][index], config)
             except TimeoutException:
                 continue
             if len(t) > 0:
