@@ -7,10 +7,11 @@ from astropy.table import Table
 from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
 from numpy import copy, ndarray, floor, nan
+import numpy.ma as ma
 from photutils import detect_threshold, detect_sources, deblend_sources, make_source_mask
 
 
-def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=5, omit_centre=True):
+def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=11, omit_centre=True):
     """
     Masks a cutout. Users can specify parameters to adjust the severity of the mask. Default
     parameters strikes a decent balance.
@@ -34,6 +35,8 @@ def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=5, omit_centre=True)
 
     n_masked = sum(source_mask)
 
+    # masked_cutout = ma.masked_array(cutout, mask=source_mask)
+
     masked_cutout = copy(cutout)
     masked_cutout[source_mask] = nan
 
@@ -47,7 +50,7 @@ def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=5, omit_centre=True)
 
 
 def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
-    """ Gemerates a given mask based on the input parameters """
+    """ Generates a given mask based on the input parameters """
 
     sigma = gauss_width * gaussian_fwhm_to_sigma
     kernel = Gaussian2DKernel(sigma).normalize()
