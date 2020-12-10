@@ -1,5 +1,5 @@
 from astropy.io import fits
-from astropy.modeling.models import Sersic2D
+from astropy.modeling.models import Gaussian2D, Sersic2D
 from astropy.modeling import Fittable2DModel, Parameter
 
 from numpy import exp, isnan, mgrid, ceil, pi, cosh, cos, sin
@@ -205,6 +205,29 @@ def add_to_noise(models, bg_mean=0., bg_std=0.025):
     return noisy_images
 
 
+def simulate_bg_gaussians(n_bgs, n_models, width=251, noise_mean=0.001, noise_std=0.01,
+                          amplitude=(0, 3), stddev=(2, 10)):
+
+    x, y = mgrid[:width, :width]
+    backgrounds = []
+    for i in range(0, n_bgs):
+        # Generate base image with Gaussian noise
+        random_bg = make_noise_image((width, width), distribution='gaussian', mean=noise_mean, stddev=noise_std)
+
+        # Generate a random assortment of Gaussian models with the supplied User parameters
+        for j in range(0, n_models):
+            model = Gaussian2D(amplitude=uniform(amplitude[0], amplitude[1]),
+                               x_mean=uniform(0, width),
+                               y_mean=uniform(0, width),
+                               x_stddev=uniform(stddev[0], stddev[1]),
+                               y_stddev=uniform(stddev[0], stddev[1]),
+                               theta=uniform(0, 2 * pi))
+            z = model(x, y)
+            random_bg += z
+        backgrounds.append(random_bg)
+    return backgrounds
+
+
 class EdgeOnDisk(Fittable2DModel):
     """
     Two-dimensional Edge-On Disk model.
@@ -248,3 +271,5 @@ class ObjectGenError(Exception):
     def __init__(self, expression="", message="Fails exceeded the limit"):
         self.expression = expression
         self.message = message
+
+
