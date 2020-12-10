@@ -7,7 +7,6 @@ from astropy.table import Table
 from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
 from numpy import copy, ndarray, floor, nan
-import numpy.ma as ma
 from photutils import detect_threshold, detect_sources, deblend_sources, make_source_mask
 
 
@@ -34,8 +33,6 @@ def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=11, omit_centre=True
     source_mask = boolean_mask(source_mask, omit=[source_mask[c_x][c_y]] if omit_centre else None)
 
     n_masked = sum(source_mask)
-
-    # masked_cutout = ma.masked_array(cutout, mask=source_mask)
 
     masked_cutout = copy(cutout)
     masked_cutout[source_mask] = nan
