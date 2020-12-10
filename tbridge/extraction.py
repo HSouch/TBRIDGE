@@ -1,10 +1,8 @@
 from numpy import max, pi, log
 from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
-# from photutils.isophote import Ellipse, EllipseGeometry
 
 from .isophote_l import Ellipse, EllipseGeometry
-
 
 from tqdm import tqdm
 
@@ -92,7 +90,7 @@ def isophote_fitting(data, config=None, centre_method='standard', fit_method='st
     return fitting_list
 
 
-def isophote_fitting_tester(data, config=None, centre_method='standard', fit_method='standard', maxrit=None):
+def _isophote_fitting_tester(data, config=None, centre_method='standard', fit_method='standard', maxrit=None):
     """
     Identical to tbridge.isophote_fitting() but with far fewer exception handling cases to check for issues in
     isophote fitting (the internal code from Photutils).
@@ -103,8 +101,6 @@ def isophote_fitting_tester(data, config=None, centre_method='standard', fit_met
     fail_count, max_fails = 0, 1000
     linear = False if config is None else config["LINEAR"]
     step = 1. if config is None else config["LINEAR_STEP"]
-    verbose = False if config is None else config["VERBOSE"]
-    test_verbose = False if config is None else config["TEST_VERBOSE"]
 
     # Get centre of image and cutout halfwidth
     if centre_method == 'standard':
@@ -124,8 +120,7 @@ def isophote_fitting_tester(data, config=None, centre_method='standard', fit_met
         r = 2.0
         pos = (morph_cat.xcentroid.value, morph_cat.ycentroid.value)
 
-        a = morph_cat.semimajor_axis_sigma.value * r
-        b = morph_cat.semiminor_axis_sigma.value * r
+        a, b = morph_cat.semimajor_axis_sigma.value * r, morph_cat.semiminor_axis_sigma.value * r
         theta = morph_cat.orientation.value
 
         geometry = EllipseGeometry(pos[0], pos[1], sma=a, eps=(1 - (b / a)), pa=theta)
@@ -137,7 +132,7 @@ def isophote_fitting_tester(data, config=None, centre_method='standard', fit_met
 
     except KeyboardInterrupt:
         sys.exit(1)
-    except (OverflowError):
+    except OverflowError:
         fail_count += 1
         if fail_count >= max_fails:
             return []
@@ -157,9 +152,7 @@ def isophote_fitting_tester(data, config=None, centre_method='standard', fit_met
 
     except KeyboardInterrupt:
         sys.exit(1)
-    except (OverflowError):
-
-        # print("RuntimeError or ValueError")
+    except OverflowError:
         fail_count += 1
         if fail_count >= max_fails:
             return []
@@ -188,7 +181,7 @@ def extract_profiles(cutout_list, config, progress_bar=False, maxrit=None, isoph
         for j in range(0, len(cutout_list)):
             try:
                 if isophote_testing:
-                    t = isophote_fitting_tester(cutout_list[j][index], config)
+                    t = _isophote_fitting_tester(cutout_list[j][index], config)
                 else:
                     t = isophote_fitting(cutout_list[j][index], config)
             except TimeoutException:
