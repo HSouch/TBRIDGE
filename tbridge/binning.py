@@ -99,7 +99,7 @@ def generate_objects(params):
     return objects
 
 
-def bin_catalog(catalog_filename, config_values):
+def bin_catalog(config_values):
     """
     Bin the inputted catalog.
     :param catalog_filename: Catalog of objects.
@@ -108,7 +108,7 @@ def bin_catalog(catalog_filename, config_values):
     """
 
     # Read HST-ZEST catalog into memory
-    catalog = Table.read(catalog_filename, format="fits")
+    catalog = Table.read(config_values["CATALOG"], format="fits")
 
     mags = array(catalog[config_values["MAG_KEY"]])
     r50s = array(catalog[config_values["R50_KEY"]])
