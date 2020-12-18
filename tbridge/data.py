@@ -371,6 +371,13 @@ def load_array(filename):
 
 
 def get_backgrounds(config_values, n=50, return_psfs=True):
+    """
+    Retrieve a random set of backgrounds from the input image directory.
+    :param config_values: User provided configuration file.
+    :param n: Number of backgrounds to generate.
+    :param return_psfs:
+    :return:
+    """
 
     image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
     size = config_values["SIZE"]
