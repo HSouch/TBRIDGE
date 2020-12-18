@@ -2,7 +2,7 @@ from astropy.io import fits
 from astropy.modeling.models import Gaussian2D, Sersic2D
 from astropy.modeling import Fittable2DModel, Parameter
 
-from numpy import exp, isnan, mgrid, ceil, pi, cosh, cos, sin
+from numpy import exp, isnan, mgrid, ceil, pi, cosh, cos, sin, sqrt
 from numpy.random import choice, randint, uniform
 
 from photutils.datasets import make_noise_image
@@ -206,8 +206,8 @@ def add_to_noise(models, bg_mean=0., bg_std=0.025):
 
 
 def simulate_bg_gaussians(n_bgs, n_models, width=251, noise_mean=0.001, noise_std=0.01,
-                          amplitude=(0, 3), stddev=(2, 10)):
-
+                          amplitude=(0, 3), stddev=(2, 10), min_dist=0):
+    x_0 = width /2
     x, y = mgrid[:width, :width]
     backgrounds = []
     for i in range(0, n_bgs):
@@ -216,9 +216,14 @@ def simulate_bg_gaussians(n_bgs, n_models, width=251, noise_mean=0.001, noise_st
 
         # Generate a random assortment of Gaussian models with the supplied User parameters
         for j in range(0, n_models):
+            x_mean, y_mean, dist = uniform(0, width), uniform(0, width), 0
+            while dist <= min_dist:
+                x_mean, y_mean = uniform(0, width), uniform(0, width)
+                dist = sqrt((x_mean - x_0) ** 2 + (y_mean - x_0) ** 2)
+
             model = Gaussian2D(amplitude=uniform(amplitude[0], amplitude[1]),
-                               x_mean=uniform(0, width),
-                               y_mean=uniform(0, width),
+                               x_mean=x_mean,
+                               y_mean=y_mean,
                                x_stddev=uniform(stddev[0], stddev[1]),
                                y_stddev=uniform(stddev[0], stddev[1]),
                                theta=uniform(0, 2 * pi))
