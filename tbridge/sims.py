@@ -88,7 +88,10 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
 
             results = [pool.apply_async(_simulate_single_model, (models[i], config_values, provided_bgs))
                        for i in range(0, len(models))]
-            model_list = [res.get(timeout=config_values["ALARM_TIME"]) for res in results]
+            try:
+                model_list = [res.get(timeout=config_values["ALARM_TIME"] * 2) for res in results]
+            except TimeoutError:
+                print("Simulation TimeoutError")
 
             pool.terminate()
 
@@ -106,7 +109,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
                 try:
                     full_profile_list.append(res.get(timeout=config_values["ALARM_TIME"]))
                 except TimeoutError:
-                    print("TimeoutError")
+                    print("Extraction TimeoutError")
                     continue
 
             pool.terminate()
@@ -186,7 +189,7 @@ def _simulate_single_model(sersic_model, config_values, provided_bgs=None):
         convolved_model = tbridge.convolve_models(model, config_values)
         bg_added_model = tbridge.add_to_provided_backgrounds(convolved_model, provided_bgs)
 
-    masked_model, bg_info = tbridge.mask_cutouts(bg_added_model)
+    masked_model, bg_info = tbridge.mask_cutouts(bg_added_model, config=config_values)
 
     # bg_info will be the mean, median, and std, in that order. (see tbridge.mask_cutouts)
     bg_info = [bg_info[0][0], bg_info[1][0], bg_info[2][0]]
