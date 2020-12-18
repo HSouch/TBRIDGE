@@ -54,6 +54,9 @@ def load_config_file(filename, verbose_test=False):
         config_values[n] = bin_output
         config_values[n.split("_")[0] + "_STEP"] = float(value_string[2])
 
+    value_string = config_values["MASK_PARAMS"].split(",")
+    config_values["MASK_PARAMS"] = [float(value_string[0]), float(value_string[1]), int(value_string[2])]
+
     if verbose_test:
         for n in config_values:
             print(n, config_values[n], type(config_values[n]))
@@ -95,7 +98,8 @@ def default_config_params():
         "LINEAR": True,
         "LINEAR_STEP": 1,
         "USE_ALARM": True,
-        "ALARM_TIME": 60
+        "ALARM_TIME": 60,
+        "MASK_PARAMS": [1, 2.0, 11]
     }
 
     return default_params
@@ -146,7 +150,10 @@ def dump_default_config_file(directory=""):
              "LINEAR              = True",
              "LINEAR_STEP         = 1",
              "USE_ALARM           = True",
-             "ALARM_TIME          = 60"
+             "ALARM_TIME          = 60",
+             "",
+             "# Parameters for Masking",
+             "MASK_PARAMS         = 1, 2.0, 11"
              ]
 
     with open(directory + "config.tbridge", "w+") as f:
