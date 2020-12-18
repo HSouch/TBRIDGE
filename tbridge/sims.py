@@ -32,7 +32,7 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
 
     """
 
-    binned_objects = tbridge.bin_catalog(config_values["CATALOG"], config_values)
+    binned_objects = tbridge.bin_catalog(config_values)
     max_bins = len(binned_objects) if max_bins is None else max_bins
 
     verbose = config_values["VERBOSE"]
