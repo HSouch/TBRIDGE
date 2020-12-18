@@ -6,21 +6,31 @@ from tqdm import tqdm
 from astropy.table import Table
 from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
-from numpy import copy, ndarray, floor, nan
+from numpy import copy, ndarray, floor, nan, sum
 from photutils import detect_threshold, detect_sources, deblend_sources, make_source_mask
 
 
-def mask_cutout(cutout, nsigma=1., gauss_width=2.0, npixels=11, omit_centre=True):
+def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omit_centre=True):
     """
     Masks a cutout. Users can specify parameters to adjust the severity of the mask. Default
     parameters strikes a decent balance.
     :param cutout: Input cutout to mask.
+    :param config Input config file
     :param nsigma: The brightness requirement for objects.
     :param gauss_width: The width of the gaussian kernel.
     :param npixels: The minimum number of pixels that an object must be comprised of to be considered a source.
     :param omit_centre: Set as true to leave the central object unmasked.
     :return:
     """
+
+    # If provided with a config file, set the parameters to what is given by the user.
+    # Note that the user can just use the regular specified parameters by keeping config as None
+    if config is not None:
+        params = config["MASK_PARAMS"]
+        nsigma = params[0]
+        gauss_width = params[1]
+        npixels = params[2]
+
     mask_data = {}
     c_x, c_y = int(floor(cutout.shape[0] / 2)), int(floor(cutout.shape[1] / 2))
 
@@ -101,14 +111,16 @@ def estimate_background(cutout):
     return bg_mean, bg_median, bg_std
 
 
-def mask_cutouts(cutouts, method='standard', progress_bar=False):
+def mask_cutouts(cutouts, config=None, method='standard', progress_bar=False):
     """
     Mask a set of cutouts according to a certain method.
     :param cutouts:
+    :param config: User configuration file.
     :param method: Which method to use.
         standard : normal method. regular mask parameters. omits mask on central object
         no_central: regular mask parameters. masks central object
         background: background method: more severe mask parmeters. masks central object
+    :param progress_bar: Use a TQDM progress bar.
     :return: list of masked cutouts
     """
     masked_cutouts = []
@@ -117,11 +129,12 @@ def mask_cutouts(cutouts, method='standard', progress_bar=False):
 
     for cutout in iterable:
         if method == 'standard':
-            masked, mask_data = mask_cutout(cutout, omit_centre=True)
+            masked, mask_data = mask_cutout(cutout, config=config, omit_centre=True)
         elif method == 'no_central':
-            masked, mask_data = mask_cutout(cutout, omit_centre=False)
+            masked, mask_data = mask_cutout(cutout, config=config, omit_centre=False)
         elif method == 'background':
-            masked, mask_data = mask_cutout(cutout, nsigma=0.5, gauss_width=2.0, npixels=5, omit_centre=False)
+            masked, mask_data = mask_cutout(cutout, config=None,
+                                            nsigma=0.5, gauss_width=2.0, npixels=5, omit_centre=False)
         else:
             continue
 
