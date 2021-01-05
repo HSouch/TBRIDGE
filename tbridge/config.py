@@ -152,7 +152,7 @@ def dump_default_config_file(directory=""):
              "USE_ALARM           = True",
              "ALARM_TIME          = 60",
              "",
-             "# Parameters for Masking",
+             "# Parameters for Masking ... NSIGMA, GAUSS_WIDTH, NPIX",
              "MASK_PARAMS         = 1, 2.0, 11"
              ]
 
