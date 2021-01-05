@@ -88,10 +88,14 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
 
             results = [pool.apply_async(_simulate_single_model, (models[i], config_values, provided_bgs))
                        for i in range(0, len(models))]
-            try:
-                model_list = [res.get(timeout=config_values["ALARM_TIME"] * 2) for res in results]
-            except TimeoutError:
-                print("Simulation TimeoutError")
+
+            model_list = []
+            for res in results:
+                try:
+                    model_list.append(res.get(timeout=config_values["ALARM_TIME"] * 2))
+                except TimeoutError:
+                    print("Simulation TimeoutError")
+                    continue
 
             pool.terminate()
 
