@@ -8,7 +8,8 @@ from numpy.random import choice, randint, uniform
 from photutils.datasets import make_noise_image
 
 from scipy.signal import convolve2d
-from scipy.special import gamma, kn
+from scipy.special import gamma, gammainc, kn
+from scipy.optimize import newton
 from scipy.stats import gaussian_kde
 
 import tbridge
@@ -17,6 +18,29 @@ import tbridge
 def b(n):
     """ Get the b_n normalization constant for the sersic profile. From Graham and Driver."""
     return 2 * n - (1 / 3) + (4 / (405 * n)) + (46 / (25515 * (n ** 2)))
+
+
+def core_sersic_b(n, r_b, r_e):
+    """
+    Get the scale parameter b using the Newton-Raphson root finder.
+    :param n: Sersic index
+    :param r_b: Break radius
+    :param r_e: Effective radius
+    :return:
+    """
+    # Start by getting an initial guess at b (using the regular Sersic estimation)
+    b_guess = 2 * n - (1 / 3)
+
+    # Define the combination of gamma functions that makes up the relation
+    # We want to find the zeroes of this.
+    def evaluate(b_in):
+        comp1 = gamma(2 * n)
+        comp2 = gammainc(2 * n, b_in * ((r_b / r_e) ** (1 / n)))
+        comp3 = 2 * gammainc(2 * n, b_in)
+
+        return comp1 + comp2 - comp3
+
+    return newton(evaluate, x0=b_guess)
 
 
 def i_at_r50(mag, n=2, r_50=2, m_0=27):
@@ -262,12 +286,79 @@ class EdgeOnDisk(Fittable2DModel):
 
     @classmethod
     def evaluate(cls, x, y, amplitude, scale_x, scale_y, x_0, y_0, theta):
-        """Two dimensional Sersic profile function."""
+        """Exaluate model on a 2D x-y grid."""
 
         x_maj = abs((x - x_0) * cos(theta) + (y - y_0) * sin(theta))
         x_min = -(x - x_0) * sin(theta) + (y - y_0) * cos(theta)
 
         return amplitude * (x_maj / scale_x) * kn(1, x_maj / scale_x) / (cosh(x_min / scale_y) ** 2)
+
+
+class Core_Sersic(Fittable2DModel):
+    """
+    Two-dimensional Edge-On Disk model.
+
+    Parameters
+    ----------
+    r_e : float
+        Effective radius of the galaxy.
+    r_b : float
+        Break Radius (Where the model switches from one regime to the other).
+    I_b : float
+        Intensity at the break radius
+    alpha : float
+        Defines the "sharpness" of the model transitions
+    gamma : float
+        Power law slope
+    n     : float
+        Sersic index (see info on Sersic profiles if needed)
+
+    x_0 : float, optional
+        x position of the center
+    y_0 : float, optional
+        y position of the center
+    theta: float, optional
+        Position angle in radians, counterclockwise from the positive x-axis.
+    ellip: float, optional
+        Ellipticity of the model (default is 0 : circular)
+
+
+    """
+
+    r_e = Parameter(default=5)
+    r_b = Parameter(default=1)
+    I_b = Parameter(default=1)
+    n = Parameter(default=1)
+    alpha = Parameter(default=1)
+    gamma = Parameter(default=1)
+
+    x_0 = Parameter(default=0)
+    y_0 = Parameter(default=0)
+    theta = Parameter(default=0)
+    ellip = Parameter(default=0)
+
+    b = core_sersic_b(n, r_b, r_e)
+
+    @classmethod
+    def evaluate(cls, x, y, r_e, r_b, I_b, n, alpha, gamma, x_0, y_0, theta, ellip):
+        """Two dimensional Core-Sersic profile function."""
+
+        a, b = r_e, (1 - ellip) * r_e
+
+        def core_sersic_i_prime():
+            return I_b * (2 ** (- gamma / alpha)) * exp(b * (2 ** (1 / (alpha * n))) * (r_b / r_e) ** (1 / n))
+
+        i_prime = core_sersic_i_prime()
+
+        cos_theta, sin_theta = cos(theta), sin(theta)
+        x_maj = (x - x_0) * cos_theta + (y - y_0) * sin_theta
+        x_min = -(x - x_0) * sin_theta + (y - y_0) * cos_theta
+        z = sqrt((x_maj / a) ** 2 + (x_min / b) ** 2)
+
+        comp_1 = i_prime * ((1 + ((r_b / z) ** alpha)) ** (gamma / alpha))
+        comp_2 = -b * (((z ** alpha) + (r_b ** alpha)) / (r_e ** alpha)) ** (1 / (n * alpha))
+
+        return comp_1 * exp(comp_2)
 
 
 class ObjectGenError(Exception):
