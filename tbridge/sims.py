@@ -1,10 +1,11 @@
 import tbridge
+import tbridge.plotting as plotter
 import time
 import multiprocessing as mp
 from multiprocessing import TimeoutError
 
-from numpy import transpose, round
-
+from numpy import transpose, round, array
+from numpy.random import choice
 import sys
 
 
@@ -52,6 +53,8 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
         for b in binned_objects[:max_bins]:
             _process_bin(b, config_values, separate_mags=separate_mags,
                          provided_bgs=provided_bgs, progress_bar=progress_bar, multiprocess=True)
+
+    tbridge.config_to_file(config_values, filename=config_values["OUT_DIR"] + "tbridge_config.txt")
 
 
 def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progress_bar=False, multiprocess=False):
@@ -177,6 +180,21 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
                               out_dir=config_values["OUT_DIR"],
                               keys=["bare", "noisy", "bgadded", "bgsub"],
                               bg_info=bg_info)
+
+        full_cutouts = array([row[0][2] for row in model_list])
+
+        if config_values["SAVE_CUTOUTS"].lower() == 'mosaic':
+            output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params) + ".png"
+            full_cutouts = full_cutouts[choice(len(full_cutouts),
+                                               size=int(len(full_cutouts) * config_values["CUTOUT_FRACTION"]),
+                                               replace=False)]
+            plotter.view_cutouts(full_cutouts, output=output_filename, log_scale=False)
+        if config_values["SAVE_CUTOUTS"].lower() == 'fits':
+            output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params) + ".png"
+            full_cutouts = full_cutouts[choice(len(full_cutouts),
+                                               size=int(len(full_cutouts) * config_values["CUTOUT_FRACTION"]),
+                                               replace=False)]
+            tbridge.save_cutouts(full_cutouts, output_filename=output_filename)
 
     if verbose:
         print("Finished", b.bin_params, "-- Time Taken:", round((time.time() - t_start) / 60, 2), "minutes.")
