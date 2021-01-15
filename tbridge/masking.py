@@ -10,7 +10,8 @@ from numpy import copy, ndarray, floor, nan, sum
 from photutils import detect_threshold, detect_sources, deblend_sources, make_source_mask
 
 
-def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omit_centre=True):
+def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omit_centre=True,
+                clip_negatives=True):
     """
     Masks a cutout. Users can specify parameters to adjust the severity of the mask. Default
     parameters strikes a decent balance.
@@ -20,6 +21,8 @@ def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omi
     :param gauss_width: The width of the gaussian kernel.
     :param npixels: The minimum number of pixels that an object must be comprised of to be considered a source.
     :param omit_centre: Set as true to leave the central object unmasked.
+    :param clip_negatives: Remove negative pixels that are 3 sigma below the median BG level
+                           (This is to get rid of artifacts).
     :return:
     """
 
@@ -41,11 +44,14 @@ def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omi
     # Generate source mask
     source_mask = generate_mask(cutout, nsigma=nsigma, gauss_width=gauss_width, npixels=npixels)
     source_mask = boolean_mask(source_mask, omit=[source_mask[c_x][c_y]] if omit_centre else None)
-
     n_masked = sum(source_mask)
 
     masked_cutout = copy(cutout)
     masked_cutout[source_mask] = nan
+
+    if clip_negatives:
+        limit = bg_median - (3 * bg_std)
+        masked_cutout[masked_cutout <= limit] = nan
 
     mask_data["BG_MEAN"] = bg_mean
     mask_data["BG_MEDIAN"] = bg_median
@@ -128,20 +134,23 @@ def mask_cutouts(cutouts, config=None, method='standard', progress_bar=False):
     iterable = cutouts if not progress_bar else tqdm(cutouts)
 
     for cutout in iterable:
-        if method == 'standard':
-            masked, mask_data = mask_cutout(cutout, config=config, omit_centre=True)
-        elif method == 'no_central':
-            masked, mask_data = mask_cutout(cutout, config=config, omit_centre=False)
-        elif method == 'background':
-            masked, mask_data = mask_cutout(cutout, config=None,
-                                            nsigma=0.5, gauss_width=2.0, npixels=5, omit_centre=False)
-        else:
-            continue
+        try:
+            if method == 'standard':
+                masked, mask_data = mask_cutout(cutout, config=config, omit_centre=True)
+            elif method == 'no_central':
+                masked, mask_data = mask_cutout(cutout, config=config, omit_centre=False)
+            elif method == 'background':
+                masked, mask_data = mask_cutout(cutout, config=None,
+                                                nsigma=0.5, gauss_width=2.0, npixels=5, omit_centre=False)
+            else:
+                continue
 
-        masked_cutouts.append(masked)
-        bg_means.append(mask_data["BG_MEAN"])
-        bg_medians.append(mask_data["BG_MEDIAN"])
-        bg_stds.append(mask_data["BG_STD"])
+            masked_cutouts.append(masked)
+            bg_means.append(mask_data["BG_MEAN"])
+            bg_medians.append(mask_data["BG_MEDIAN"])
+            bg_stds.append(mask_data["BG_STD"])
+        except AttributeError:
+            print("Cutout might be a NoneType")
 
     return masked_cutouts, [bg_means, bg_medians, bg_stds]
 
