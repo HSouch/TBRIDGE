@@ -11,6 +11,7 @@ def load_config_file(filename, verbose_test=False):
     """
     config_values = {}
 
+    # First try to open things locally. If that doesn't work try it as a URL
     try:
         config_lines = open(filename, "r").readlines()
     except FileNotFoundError:
@@ -63,6 +64,12 @@ def load_config_file(filename, verbose_test=False):
             print(n, config_values[n], type(config_values[n]))
 
     return config_values
+
+
+def print_config(config):
+    """ Print out the configuration file values"""
+    for n in config:
+        print(n, config[n], type(config[n]))
 
 
 def default_config_params():
@@ -170,6 +177,13 @@ def dump_default_config_file(directory=""):
     with open(directory + "config.tbridge", "w+") as f:
         for n in lines:
             f.write(n + "\n")
+
+
+def config_to_file(config, filename="config_out.txt"):
+    with open(filename, mode="w+") as f:
+        for n in config:
+            line = n + "\t" + str(config[n]) + "\t" + str(type(config[n])) + "\n"
+            f.write(line)
 
 
 # load_config_file("../config.tbridge", verbose_test=False)
