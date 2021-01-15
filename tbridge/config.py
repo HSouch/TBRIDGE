@@ -45,6 +45,7 @@ def load_config_file(filename, verbose_test=False):
     config_values["N_MODELS"] = int(config_values["N_MODELS"])
     config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
     config_values["ALARM_TIME"] = int(config_values["ALARM_TIME"])
+    config_values["CUTOUT_FRACTION"] = float(config_values["CUTOUT_FRACTION"])
 
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
@@ -76,6 +77,9 @@ def default_config_params():
         "IMAGE_DIRECTORY": "images/",
         "PSF_FILENAME": "i_psfs.fits",
         "OUT_DIR": "out/",
+        "SAVE_CUTOUTS": 'none',
+        "CUTOUT_FRACTION": 0.2,
+
         "MASS_KEY": "MASSES",
         "Z_KEY": "REDSHIFTS",
         "SFPROB_KEY": "SFPROBS",
@@ -83,18 +87,21 @@ def default_config_params():
         "R50_KEY": "R50S",
         "N_KEY": "SERSIC_NS",
         "ELLIP_KEY": "ELLIPS",
+
         "SIZE": 100,
         "BAND": "i",
         "CORES": 4,
         "ARC_CONV": 0.2,
         "N_MODELS": 100,
         "SAME_BGS": True,
+
         "MASS_BINS": arange(10., 12., 0.4),
         "REDSHIFT_BINS": arange(0.1, 0.9, 0.2),
         "SFPROB_BINS": arange(0.0, 1, 0.5),
         "MASS_STEP": 0.4,
         "REDSHIFT_STEP": 0.2,
         "SFPROB_STEP": 0.5,
+
         "LINEAR": True,
         "LINEAR_STEP": 1,
         "USE_ALARM": True,
@@ -116,10 +123,14 @@ def dump_default_config_file(directory=""):
              "TEST_VERBOSE        = False",
              "",
              "# Directories and filenames -- Input and output",
+             "# For SAVE CUTOUTS, options are 'none', 'mosaic', and 'fits'",
              "CATALOG             = cat.fits",
              "IMAGE_DIRECTORY     = images/",
              "PSF_FILENAME        = i_psfs.fits",
              "OUT_DIR             = out/",
+             "SAVE_CUTOUTS        = none",
+             "CUTOUT_FRACTION     = 0.2",
+
              "",
              "# Keys for masses, redshifts, and star-formation probability.",
              "MASS_KEY            = MASSES",
