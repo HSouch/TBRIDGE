@@ -177,6 +177,9 @@ def index_format(in_dir, x_bins, y_bins, out_dir="dir_copy/", indices=(1, 2), me
 
     for subdir in subdirs:
 
+        if os.path.isfile(in_dir + subdir):
+            continue
+
         subdir += "/"
         files = os.listdir(in_dir + subdir)
 
@@ -242,6 +245,8 @@ def median_pipeline(in_dir, config=tbridge.default_config_params(), multiprocess
     tbridge.generate_file_structure(out_dir, subdirs)
 
     for subdir in subdirs[:]:
+        if os.path.isfile(in_dir + subdir):
+            continue
         subdir = subdir + "/"
 
         bins = [str(b) for b in Path(in_dir + subdir).rglob('*.fits')]
