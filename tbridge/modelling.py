@@ -312,7 +312,6 @@ class Core_Sersic(Fittable2DModel):
         Power law slope
     n     : float
         Sersic index (see info on Sersic profiles if needed)
-
     x_0 : float, optional
         x position of the center
     y_0 : float, optional
@@ -337,26 +336,24 @@ class Core_Sersic(Fittable2DModel):
     theta = Parameter(default=0)
     ellip = Parameter(default=0)
 
-    b = core_sersic_b(n, r_b, r_e)
-
     @classmethod
     def evaluate(cls, x, y, r_e, r_b, I_b, n, alpha, gamma, x_0, y_0, theta, ellip):
         """Two dimensional Core-Sersic profile function."""
 
-        a, b = r_e, (1 - ellip) * r_e
+        bn = core_sersic_b(n, r_b, r_e)
 
         def core_sersic_i_prime():
-            return I_b * (2 ** (- gamma / alpha)) * exp(b * (2 ** (1 / (alpha * n))) * (r_b / r_e) ** (1 / n))
+            return I_b * (2 ** (- gamma / alpha)) * exp(bn * (2 ** (1 / (alpha * n))) * (r_b / r_e) ** (1 / n))
 
         i_prime = core_sersic_i_prime()
 
         cos_theta, sin_theta = cos(theta), sin(theta)
         x_maj = (x - x_0) * cos_theta + (y - y_0) * sin_theta
         x_min = -(x - x_0) * sin_theta + (y - y_0) * cos_theta
-        z = sqrt((x_maj / a) ** 2 + (x_min / b) ** 2)
+        z = sqrt(x_maj ** 2 + (x_min / (1-ellip)) ** 2)
 
         comp_1 = i_prime * ((1 + ((r_b / z) ** alpha)) ** (gamma / alpha))
-        comp_2 = -b * (((z ** alpha) + (r_b ** alpha)) / (r_e ** alpha)) ** (1 / (n * alpha))
+        comp_2 = -bn * (((z ** alpha) + (r_b ** alpha)) / (r_e ** alpha)) ** (1 / (n * alpha))
 
         return comp_1 * exp(comp_2)
 
