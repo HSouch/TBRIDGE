@@ -175,6 +175,17 @@ def generate_output_report(out_dir="", t_final=0., t_init=0., catalog_filename="
     output_report.writelines(lines)
 
 
+def generate_file_prefix(bin_params):
+    """ Use the bin params to generate a file prefix."""
+    prefix = "bin_"
+    for j in range(0, len(bin_params)):
+        if (j + 1) % 2 != 0:
+            prefix += str(bin_params[j]) + "-"
+        else:
+            prefix += str(bin_params[j]) + "_"
+    return prefix
+
+
 def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None):
     """
     Saves a set of profiles into a properly formatted output directory, with proper filename format.
@@ -187,14 +198,6 @@ def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None):
                     subdirectory.
     :return:
     """
-    def generate_file_prefix(bin_params):
-        prefix = "bin_"
-        for j in range(0, len(bin_params)):
-            if (j + 1) % 2 != 0:
-                prefix += str(bin_params[j]) + "-"
-            else:
-                prefix += str(bin_params[j]) + "_"
-        return prefix
 
     # Generate output structure
     subdirs = []
