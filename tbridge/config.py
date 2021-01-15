@@ -113,7 +113,7 @@ def default_config_params():
         "LINEAR_STEP": 1,
         "USE_ALARM": True,
         "ALARM_TIME": 60,
-        "MASK_PARAMS": [1, 2.0, 11]
+        "MASK_PARAMS": [1, 2.0, 11],
     }
 
     return default_params
