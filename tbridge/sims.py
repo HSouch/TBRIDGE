@@ -181,7 +181,16 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
                               keys=["bare", "noisy", "bgadded", "bgsub"],
                               bg_info=bg_info)
 
+        unmasked_cutouts = array([row[2] for row in model_list])
         full_cutouts = array([row[0][2] for row in model_list])
+
+        if config_values["SAVE_CUTOUTS"].lower() == 'stitch':
+            output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params) + "stitch.fits"
+            indices = choice(len(full_cutouts), size=int(len(full_cutouts) * config_values["CUTOUT_FRACTION"]),
+                             replace=False)
+            full_cutouts = full_cutouts[indices]
+            unmasked_cutouts = unmasked_cutouts[indices]
+            tbridge.cutout_stitch(unmasked_cutouts, masked_cutouts=full_cutouts, output_filename=output_filename)
 
         if config_values["SAVE_CUTOUTS"].lower() == 'mosaic':
             output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params) + ".png"
@@ -203,6 +212,13 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
 
 
 def _simulate_single_model(sersic_model, config_values, provided_bgs=None):
+    """
+
+    :param sersic_model:
+    :param config_values:
+    :param provided_bgs:
+    :return:
+    """
     # Generate BG added models in accordance to whether a user has provided backgrounds or not
     model = [sersic_model]
     if provided_bgs is None:
@@ -219,7 +235,7 @@ def _simulate_single_model(sersic_model, config_values, provided_bgs=None):
 
     # print(type(convolved_model), type(noisy_model), type(bg_added_model), type(convolved_model[0]))
 
-    return [convolved_model[0], noisy_model[0], masked_model[0]], bg_info
+    return [convolved_model[0], noisy_model[0], masked_model[0]], bg_info, bg_added_model[0]
 
 
 def _reformat_profile_list(profile_list):
