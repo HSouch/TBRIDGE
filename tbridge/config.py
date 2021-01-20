@@ -130,7 +130,7 @@ def dump_default_config_file(directory=""):
              "TEST_VERBOSE        = False",
              "",
              "# Directories and filenames -- Input and output",
-             "# For SAVE CUTOUTS, options are 'none', 'mosaic', and 'fits'",
+             "# For SAVE CUTOUTS, options are 'none', 'mosaic', 'stitch', and 'fits'",
              "CATALOG             = cat.fits",
              "IMAGE_DIRECTORY     = images/",
              "PSF_FILENAME        = i_psfs.fits",
