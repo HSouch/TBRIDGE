@@ -6,7 +6,7 @@ from astropy.io import fits
 from astropy.wcs import wcs
 from astropy.table import Table
 
-from numpy import arange, array, sqrt, str, save, load, ceil
+from numpy import arange, array, sqrt, str, save, load, ceil, zeros, isnan
 from numpy.random import choice, uniform, randint
 
 
@@ -426,3 +426,59 @@ def as_dir(directory):
         return directory + "/"
     else:
         return directory
+
+
+def cutout_stitch(cutouts, masked_cutouts=None, output_filename=None):
+    """
+    Generate a full stitch from a set of cutouts.
+    :param cutouts: Array of cutouts (ideally unmasked but it makes no difference). Need to be all the same size as the
+                    first cutout.
+    :param masked_cutouts: The same cutouts but masked
+    :param output_filename: Optional output to save as HDUList
+    :return: Returns either the stitch, or a tuple of the stich and the mask stitch.
+    """
+
+    i = int(sqrt(len(cutouts)))
+    j = int(len(cutouts) / i)
+
+    c_width, c_height = cutouts[0].shape[0], cutouts[1].shape[1]
+    w, h = i * c_width, j * c_height
+
+    canvas = zeros((w, h))
+
+    if masked_cutouts is not None:
+        masked_canvas = zeros((w, h))
+    else:
+        masked_canvas = None
+
+    n = 0
+
+    # Add cutouts to the canvas
+    for x in range(i):
+        for y in range(j):
+            try:
+                canvas[x * c_width: x * c_width + c_width,
+                y * c_height: y * c_height + c_height] = cutouts[n]
+            except ValueError:
+                continue
+            if masked_cutouts is not None:
+                masked_cutout = masked_cutouts[n]
+                mask = isnan(masked_cutout).astype(int)
+
+                masked_canvas[x * c_width: x * c_width + c_width,
+                y * c_height: y * c_height + c_height] = mask
+            n += 1
+            if n == len(cutouts):
+                break
+
+    if output_filename is not None:
+        HDUList = fits.HDUList()
+        HDUList.append(fits.ImageHDU(canvas))
+        if masked_cutouts is not None:
+            HDUList.append(fits.ImageHDU(masked_canvas))
+        HDUList.writeto(output_filename)
+
+    if masked_cutouts is None:
+        return canvas
+    else:
+        return canvas, masked_canvas
