@@ -1,6 +1,7 @@
 import tbridge
 from numpy import trapz, copy, isnan, isinf, log10, arange, max
 from scipy.interpolate import interp1d
+from scipy.signal import savgol_filter
 
 
 def get_half_light_radius(x, y):
@@ -138,3 +139,11 @@ def overlap(sma, low_1, high_1, low_2, high_2, threshold=1):
     # plt.fill_between(sma, low_2(sma), high_2(sma), color="blue", alpha=0.8)
     # plt.show()
     return i
+
+
+def smooth(arr, window=9, poly=1, iterations=2):
+    arr = copy(arr)
+    for i in range(iterations):
+        arr = savgol_filter(arr, window_length=window, polyorder=poly)
+
+    return arr
