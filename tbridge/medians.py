@@ -263,7 +263,11 @@ def median_pipeline(in_dir, config=tbridge.default_config_params(), multiprocess
 
 
 def load_median_info(filename):
-
+    """
+    Load a complete set of median info (TBriDGE output) in as a dict object.
+    :param filename:
+    :return:
+    """
     median_data = {}
 
     hdul = fits.open(filename)
