@@ -71,7 +71,6 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progre
     """
 
     t_start = time.time()
-
     verbose = config_values["VERBOSE"]
 
     # Load in information
