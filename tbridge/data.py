@@ -373,7 +373,7 @@ def load_array(filename):
         return None
 
 
-def get_backgrounds(config_values, n=50, return_psfs=True):
+def get_backgrounds(config_values, n=50, return_psfs=True, return_bg_info=True):
     """
     Retrieve a random set of backgrounds from the input image directory.
     :param config_values: User provided configuration file.
@@ -388,7 +388,9 @@ def get_backgrounds(config_values, n=50, return_psfs=True):
     with fits.open(psf_filename) as psfs:
         image_filenames = tbridge.get_image_filenames(image_dir)
 
-        psf_list, bg_added_models = [], []
+        psf_list, bg_added_models, image_list, ras, decs = [], [], [], [], []
+
+        bg_infotable = {"IMAGES": [], "RAS": [], "DECS": [], "XS": [], "YS": []}
 
         for i in range(0, n):
             model_halfwidth = ceil(size / 2)
@@ -407,16 +409,26 @@ def get_backgrounds(config_values, n=50, return_psfs=True):
             y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
 
             image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
+            ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
 
             if return_psfs:
-                ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
                 psf = tbridge.get_closest_psf(psfs, ra, dec).data
                 psf_list.append(psf)
 
             bg_added_models.append(image_cutout)
+            bg_infotable["IMAGES"].append(image_filename)
+            bg_infotable["RAS"].append(ra)
+            bg_infotable["DECS"].append(dec)
+            bg_infotable["XS"].append(c_x)
+            bg_infotable["YS"].append(c_y)
 
     if return_psfs:
-        return bg_added_models, psf_list
+        if return_bg_info:
+            return bg_added_models, psf_list, bg_infotable
+        else:
+            return bg_added_models, psf_list
+    elif return_bg_info:
+        return bg_added_models, bg_infotable
     else:
         return bg_added_models
 

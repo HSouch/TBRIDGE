@@ -8,16 +8,19 @@ from numpy.random import choice, randint, uniform
 from photutils.datasets import make_noise_image
 
 from scipy.signal import convolve2d
-from scipy.special import gamma, gammainc, kn
+from scipy.special import gamma, gammainc, gammaincinv, kn
 from scipy.optimize import newton
 from scipy.stats import gaussian_kde
 
 import tbridge
 
 
-def b(n):
+def b(n, estimate=False):
     """ Get the b_n normalization constant for the sersic profile. From Graham and Driver."""
-    return 2 * n - (1 / 3) + (4 / (405 * n)) + (46 / (25515 * (n ** 2)))
+    if estimate:
+        return 2 * n - (1 / 3) + (4 / (405 * n)) + (46 / (25515 * (n ** 2)))
+    else:
+        return gammaincinv(2 * n, 0.5)
 
 
 def core_sersic_b(n, r_b, r_e):
@@ -46,8 +49,8 @@ def core_sersic_b(n, r_b, r_e):
 def i_at_r50(mag, n=2, r_50=2, m_0=27):
     """ Get the intensity at the half-light radius """
     b_n = b(n)
-    l_tot = 10 ** ((mag - m_0) / -2.5)
-    denom = (r_50 ** 2) * 2 * pi * n * exp(b_n) * gamma(2 * n) / (b_n ** (2 * n))
+    l_tot = 10 ** ((mag - m_0) / -2.5) * (b_n ** (2 * n))
+    denom = (r_50 ** 2) * 2 * pi * n * exp(b_n) * gamma(2 * n)
     i_e = l_tot / denom
 
     return i_e
@@ -131,6 +134,13 @@ def simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=10):
 
 
 def add_to_locations_simple(models, config_values, convolve=True):
+    """
+    Add a set of models to provided locations.
+    :param models: Set of models (ndarray format)
+    :param config_values:
+    :param convolve:
+    :return:
+    """
 
     image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
 
