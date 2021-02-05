@@ -2,7 +2,8 @@ from numpy import max, pi, log
 from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
 
-from .isophote_l import Ellipse, EllipseGeometry
+# from .isophote_l import Ellipse, EllipseGeometry
+from examples.isophote_l import Ellipse, EllipseGeometry
 
 from tqdm import tqdm
 
@@ -140,7 +141,7 @@ def _isophote_fitting_tester(data, config=None, centre_method='standard', fit_me
     # If that fails, test a parameter space of starting ellipses
     try:
         for angle in range(0, 180, 45):
-            for sma in range(2, 26, 5):
+            for sma in range(4, 26, 5):
                 for eps in (0.3, 0.5, 0.9):
                     geometry = EllipseGeometry(float(centre[0]), float(centre[1]), eps=eps,
                                                sma=sma, pa=angle * pi / 180.)

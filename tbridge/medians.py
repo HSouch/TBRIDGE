@@ -19,9 +19,12 @@ def as_interpolations(profile_list, fill_value_type='min', x_key="sma", y_key="i
 
     for prof in profile_list:
         sma, intens = prof[x_key], prof[y_key]
-        interp = interp1d(sma, intens, bounds_error=False, fill_value=0)
-        interps.append(interp)
-
+        try:
+            interp = interp1d(sma, intens, bounds_error=False, fill_value=0)
+            interps.append(interp)
+        except ValueError:
+            print("ValueError in getting interpolation")
+            continue
     return interps
 
 

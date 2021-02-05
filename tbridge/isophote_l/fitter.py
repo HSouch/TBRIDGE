@@ -131,6 +131,10 @@ class EllipseFitter:
         # wasn't exceeded yet.
         lexceed = False
 
+        # these values count the number of fitting errors (to catch an infinite loop in interations) and
+        # specify a max threshold
+        iter_fails, max_iter_fails = 0, 100
+
         # here we keep track of the sample that caused the minimum harmonic
         # amplitude(in absolute value). This will eventually be used to
         # build the resulting Isophote in cases where iterations run to
@@ -153,16 +157,6 @@ class EllipseFitter:
             # values[2] = 1-d array with intensity
             values = sample.extract()
 
-            # We have to check for a zero-length condition here, and bail out
-            # in case it is detected. The scipy fitter won't raise an exception
-            # for zero-length input arrays, but just prints an "INFO" message.
-            # This may result in an infinite loop.
-            if len(values[2]) < 1:
-                s = str(sample.geometry.sma)
-                log.warning("Too small sample to warrant a fit. SMA is " + s)
-                sample.geometry.fix = fixed_parameters
-                return Isophote(sample, i + 1, False, 3)
-
             # Fit harmonic coefficients. Failure in fitting is
             # a fatal error; terminate immediately with sample
             # marked as invalid.
@@ -170,15 +164,17 @@ class EllipseFitter:
                 coeffs = fit_first_and_second_harmonics(values[0], values[2])
                 coeffs = coeffs[0]
             except Exception as e:
-                log.warning(e)
+                iter_fails += 1
+                if iter_fails >= max_iter_fails:
+                    raise RuntimeError
+
                 sample.geometry.fix = fixed_parameters
                 return Isophote(sample, i + 1, False, 3)
 
             # Mask out coefficients that control fixed ellipse parameters.
             free_coeffs = ma.masked_array(coeffs[1:], mask=fixed_parameters)
 
-            # Largest non-masked harmonic in absolute value drives the
-            # correction.
+            # Largest non-masked harmonic in absolute value drives the correction.
             largest_harmonic_index = np.argmax(np.abs(free_coeffs))
             largest_harmonic = free_coeffs[largest_harmonic_index]
 

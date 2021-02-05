@@ -6,7 +6,6 @@ This module provides tools for pixel integration.
 import math
 
 import numpy.ma as ma
-import numpy as np
 
 __all__ = ['INTEGRATORS', 'NEAREST_NEIGHBOR', 'BILINEAR', 'MEAN', 'MEDIAN']
 
@@ -323,11 +322,8 @@ class _MeanIntegrator(_AreaIntegrator):
         return accumulator
 
     def accumulate(self, pixel_value, accumulator):
-        if not np.isnan(pixel_value):
-            accumulator += pixel_value
-            self._npix += 1
-        else:
-            pass
+        accumulator += pixel_value
+        self._npix += 1
         return accumulator, self._npix
 
     def compute_sample_value(self, accumulator):

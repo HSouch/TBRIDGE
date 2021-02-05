@@ -1,8 +1,9 @@
 from astropy.io import fits
 from astropy.modeling.models import Gaussian2D, Sersic2D
 from astropy.modeling import Fittable2DModel, Parameter
+from astropy.stats import sigma_clipped_stats
 
-from numpy import exp, isnan, mgrid, ceil, pi, cosh, cos, sin, sqrt
+from numpy import exp, isnan, mgrid, ceil, pi, cosh, cos, sin, sqrt, std
 from numpy.random import choice, randint, uniform
 
 from photutils.datasets import make_noise_image
@@ -133,16 +134,19 @@ def simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=10):
     return sersic_models
 
 
-def add_to_locations_simple(models, config_values, convolve=True):
+def add_to_locations_simple(models, config_values, convolve=True, return_bg_info=False, threshold=1e-4):
     """
     Add a set of models to provided locations.
     :param models: Set of models (ndarray format)
     :param config_values:
     :param convolve:
+    :param threshold: To avoid broken backgrounds (with a solid constant), set a minimum noise threshold.
+                      Set this to None if you don't want to check this
     :return:
     """
 
     image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
+    bg_infotable = {"IMAGES": [], "RAS": [], "DECS": [], "XS": [], "YS": []}
 
     with fits.open(psf_filename) as psfs:
         image_filenames = tbridge.get_image_filenames(image_dir)
@@ -168,6 +172,12 @@ def add_to_locations_simple(models, config_values, convolve=True):
 
             image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
 
+            # Check if the background std is less than a given
+            if threshold is not None:
+                bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
+                if bg_std < threshold:
+                    continue
+
             ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
             psf = tbridge.get_closest_psf(psfs, ra, dec).data
 
@@ -181,10 +191,24 @@ def add_to_locations_simple(models, config_values, convolve=True):
 
             bg_added_models.append(bg_added_model)
 
-    if convolve:
-        return bg_added_models, convolved_models
+            if return_bg_info:
+                bg_infotable["IMAGES"].append(image_filename)
+                bg_infotable["RAS"].append(ra)
+                bg_infotable["DECS"].append(dec)
+                bg_infotable["XS"].append(c_x)
+                bg_infotable["YS"].append(c_y)
+
+    if return_bg_info:
+
+        if convolve:
+            return bg_added_models, convolved_models, bg_infotable
+        else:
+            return bg_added_models, bg_infotable
     else:
-        return bg_added_models
+        if convolve:
+            return bg_added_models, convolved_models
+        else:
+            return bg_added_models
 
 
 def convolve_models(models, config_values=None, psf=None):

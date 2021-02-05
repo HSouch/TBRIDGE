@@ -2,12 +2,6 @@
 """
 This subpackage contains tools for fitting elliptical isophotes to
 galaxy images.
-
-Forked and altered from the photutils.isophote package.
-
-https://photutils.readthedocs.io/en/stable/
-
-https://photutils.readthedocs.io/en/stable/isophote.html
 """
 
 from .ellipse import *  # noqa

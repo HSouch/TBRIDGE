@@ -90,7 +90,7 @@ def fit_first_and_second_harmonics(phi, intensities):
         return first_and_second_harmonic_function(
             phi, np.array([x[0], x[1], x[2], x[3], x[4]])) - intensities
 
-    return _least_squares_fit(optimize_func, [np.nanmean(intensities), a1, b1,
+    return _least_squares_fit(optimize_func, [np.mean(intensities), a1, b1,
                                               a2, b2])
 
 
@@ -132,4 +132,4 @@ def fit_upper_harmonic(phi, intensities, order):
         return (x[0] + x[1]*np.sin(order*phi) + x[2]*np.cos(order*phi) -
                 intensities)
 
-    return _least_squares_fit(optimize_func, [np.nanmean(intensities), an, bn])
+    return _least_squares_fit(optimize_func, [np.mean(intensities), an, bn])

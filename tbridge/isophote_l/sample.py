@@ -228,11 +228,10 @@ class EllipseSample:
 
         # average sector area is calculated after the integrator had
         # the opportunity to step over the entire elliptical path.
-        self.sector_area = np.mean(np.array(sector_areas))
+        self.sector_area = np.nanmean(np.array(sector_areas))
 
         # apply sigma-clipping.
-        angles, radii, intensities = self._sigma_clip(angles, radii,
-                                                      intensities)
+        angles, radii, intensities = self._sigma_clip(angles, radii, intensities)
 
         # actual number of sampled points, after sigma-clip removed outliers.
         self.actual_points = len(angles)
@@ -265,8 +264,8 @@ class EllipseSample:
         r_intensities = []
 
         values = np.array(intensities)
-        mean = np.mean(values)
-        sig = np.std(values)
+        mean = np.nanmean(values)
+        sig = np.nanstd(values)
         lower = mean - self.sclip * sig
         upper = mean + self.sclip * sig
 
@@ -280,7 +279,7 @@ class EllipseSample:
 
         return r_angles, r_radii, r_intensities
 
-    def update(self, fixed_parameters=None):
+    def update(self, fixed_parameters):
         """
         Update this `~photutils.isophote.EllipseSample` instance.
 
@@ -290,16 +289,13 @@ class EllipseSample:
         then computes the the mean intensity, local gradient, and other
         associated quantities.
         """
-
-        if fixed_parameters is None:
-            fixed_parameters = np.array([False, False, False, False])
         self.geometry.fix = fixed_parameters
 
         step = self.geometry.astep
 
         # Update the mean value first, using extraction from main sample.
         s = self.extract()
-        self.mean = np.mean(s[2])
+        self.mean = np.nanmean(s[2])
 
         # Get sample with same geometry but at a different distance from
         # center. Estimate gradient from there.
@@ -350,12 +346,12 @@ class EllipseSample:
             integrmode=self.integrmode)
 
         sg = gradient_sample.extract()
-        mean_g = np.mean(sg[2])
+        mean_g = np.nanmean(sg[2])
         gradient = (mean_g - self.mean) / self.geometry.sma / step
 
         s = self.extract()
-        sigma = np.std(s[2])
-        sigma_g = np.std(sg[2])
+        sigma = np.nanstd(s[2])
+        sigma_g = np.nanstd(sg[2])
 
         gradient_error = (np.sqrt(sigma**2 / len(s[2]) +
                                   sigma_g**2 / len(sg[2])) /
