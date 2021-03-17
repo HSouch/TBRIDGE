@@ -2,6 +2,7 @@ import tbridge
 from numpy import trapz, copy, isnan, isinf, log10, arange, max
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
+from scipy.stats import norm
 
 
 def get_half_light_radius(x, y):
@@ -147,3 +148,33 @@ def smooth(arr, window=9, poly=1, iterations=2):
         arr = savgol_filter(arr, window_length=window, polyorder=poly)
 
     return arr
+
+
+def profile_quality(profile, bg_mean, bg_std, alpha=0.05, seeing=0, intens_cut=0.01):
+    # Retrieve the background distribution as a norm dist. centered on bg_mean with std=bg_std
+    bg_distribution = norm(loc=bg_mean, scale=bg_std)
+
+    good, bad, samples = 0, 0, len(profile)
+    sma_table, intens_table = profile["sma"], profile["intens"]
+
+    max_intens = max(intens_table)
+    intens_cut = max_intens * intens_cut
+
+    # Iterate over all intensity measurements
+    # If the cumulative dist. function at that point is greater than 1-alpha, then we
+    # have a good measurement. Otherwise, we have a bad measurement.
+
+    for i in range(samples):
+        # Don't count measurements that are made within the seeing HWHM
+        if sma_table[i] < seeing:
+            continue
+
+        intens = intens_table[i]
+        if intens <= intens_cut:
+            break
+        if bg_distribution.sf(intens) < alpha:
+            good += 1
+        else:
+            bad += 1
+
+    return good, bad
