@@ -3,7 +3,7 @@ from numpy import array, copy, append, round, reshape
 
 
 class Bin:
-    def __init__(self, objects=None, object_column_names=None, bin_params=None):
+    def __init__(self, objects=None, object_column_names=None, bin_params=None, bin_param_names=None):
         """
         :param objects: The objects contained in the bin.
         :param object_column_names: The column names when the objects are sorted column-wise instead of row-wise.
@@ -11,9 +11,13 @@ class Bin:
         """
         if bin_params is None:
             bin_params = []
+        if bin_param_names is None:
+            bin_param_names = []
+
         self.objects = objects
         self.object_column_names = object_column_names
         self.bin_params = bin_params
+        self.bin_param_names = bin_param_names
 
     def rebin(self, param_index, low_bounds, bin_width, number_threshold=4):
         """
@@ -27,6 +31,8 @@ class Bin:
         """
         new_bins = []
         top_level_params = self.bin_params
+        top_level_param_names = self.bin_param_names
+
         for low in low_bounds:
             this_bin = []
 
@@ -37,7 +43,8 @@ class Bin:
                 continue
 
             new_bin = Bin(objects=this_bin, object_column_names=self.object_column_names,
-                          bin_params=append(copy(top_level_params), (round(low, 2), round(low + bin_width, 2))))
+                          bin_params=append(copy(top_level_params), (round(low, 2), round(low + bin_width, 2))),
+                          bin_param_names=append(copy(top_level_param_names), self.key_from_index(param_index)))
             new_bins.append(new_bin)
 
         return new_bins
@@ -59,6 +66,9 @@ class Bin:
         """ Return the index of the column name key specified."""
         return self.object_column_names.index(key)
 
+    def key_from_index(self, index=0):
+        return self.object_column_names[index]
+
     def values_in_bin(self, values):
         """
         Returns a boolean whether of not a set of values is within the bin.
@@ -75,6 +85,16 @@ class Bin:
             return True
         else:
             return False
+
+    def return_param_dict(self):
+        """
+        Returns a dict object where the keys are the column names that built the parameter set,
+        and the values are the corresponding parameters.
+        """
+        param_dict = {}
+        for i in range(0, len(self.bin_param_names)):
+            param_dict[self.bin_param_names[i]] = (self.bin_params[2 * i], self.bin_params[2 * i + 1])
+        return param_dict
 
 
 def select_bin(bin_list, values):
@@ -134,3 +154,28 @@ def bin_catalog(config_values):
         full_bins.extend(cat_bin.rebin(6, sfprob_bins, sfprob_step))
 
     return full_bins
+
+
+def bin_mag_catalog(mag_table, b, mag_table_keys=None, bin_keys=None):
+    """
+    Bin an external catalogue based on a bin's provided parameters.
+    :param mag_table The magnitude table to rebin
+    :param b The tbridge.Bin object
+    :param mag_table_keys The magnitude table keys to use for binning.
+    :param bin_keys The associated bin keys (must be the same length AND order as mag_table_keys).
+    """
+    if bin_keys is None:
+        bin_keys = ["MASSES", "REDSHIFTS"]
+    if mag_table_keys is None:
+        mag_table_keys = ["MASS", "Z"]
+
+    # Gather the necessary information from the provided bin.
+    bin_dict = b.return_param_dict()
+
+    # Iterate over all keys and only return the rows that are within the bin limits.
+    for i in range(len(bin_keys)):
+        low, high = bin_dict[bin_keys[i]]
+        mag_table = mag_table[mag_table[mag_table_keys[i]] >= low]
+        mag_table = mag_table[mag_table[mag_table_keys[i]] <= high]
+
+    return mag_table
