@@ -28,3 +28,13 @@ test this by loading in the following file::
 
     tbridge.load_config_file("https://raw.githubusercontent.com/HSouch/HelpfulSnippets/master/config.tbridge")
 
+The parameters in the config file are as follows::
+
+    CATALOG             = Catalog of structural parameters
+    IMAGE_DIRECTORY     = Input image directory
+    PSF_FILENAME        = /home/harrison/Desktop/Research/compiled_psfs/i_psfs.fits
+    OUT_DIR             = out_sim/
+    SAVE_CUTOUTS        = none
+    CUTOUT_FRACTION     = 0.5
+
+
