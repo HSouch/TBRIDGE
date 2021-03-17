@@ -186,7 +186,7 @@ def generate_file_prefix(bin_params):
     return prefix
 
 
-def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None):
+def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None, structural_params=None):
     """
     Saves a set of profiles into a properly formatted output directory, with proper filename format.
     :param profile_list: The list of profiles (shape is m x n, where m is the number of different models for each
@@ -196,6 +196,7 @@ def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None):
     :param keys: the keys to generate subdirectory and file names with.
     :param bg_info: Array of associated background info for the extracted profiles. Saves to its own
                     subdirectory.
+    :param structural_params Astropy table of associated structural parameters
     :return:
     """
 
@@ -227,6 +228,13 @@ def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None):
         if not os.path.isdir(out_dir + "bg_info/"):
             os.mkdir(out_dir + "bg_info/")
         tbridge.save_array(bg_info, out_dir + "bg_info/" + filename_prefix + "bgs.npy")
+
+    if structural_params is not None:
+        if not os.path.isdir(out_dir + "params/"):
+            os.mkdir(out_dir + "params/")
+        structural_params.write(out_dir + "params/" + tbridge.generate_file_prefix(bin_info) + "params.fits",
+                                format="fits", overwrite=True)
+
 
     return None
 
@@ -488,7 +496,7 @@ def cutout_stitch(cutouts, masked_cutouts=None, output_filename=None):
         HDUList.append(fits.ImageHDU(canvas))
         if masked_cutouts is not None:
             HDUList.append(fits.ImageHDU(masked_canvas))
-        HDUList.writeto(output_filename)
+        HDUList.writeto(output_filename, overwrite=True)
 
     if masked_cutouts is None:
         return canvas
