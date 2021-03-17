@@ -6,7 +6,7 @@ from tqdm import tqdm
 from astropy.table import Table
 from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
-from numpy import copy, ndarray, floor, nan, sum
+from numpy import copy, ndarray, floor, nan, sum, ndarray
 from photutils import detect_threshold, detect_sources, deblend_sources, make_source_mask
 
 
@@ -118,7 +118,11 @@ def boolean_mask(mask, omit=None):
 
 def estimate_background(cutout):
     """ Estimate the background mean, median, and standard deviation of a cutout using sigma-clipped-stats """
-    bg_mask = make_source_mask(cutout, nsigma=2, npixels=3, dilate_size=7)
+    try:
+        bg_mask = make_source_mask(cutout, nsigma=2, npixels=3, dilate_size=7)
+    except TypeError:
+        bg_mask = make_source_mask(cutout, snr=2, npixels=3, dilate_size=7)
+
     bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
     return bg_mean, bg_median, bg_std
