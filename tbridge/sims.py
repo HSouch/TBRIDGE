@@ -1,21 +1,25 @@
 import tbridge
 import tbridge.plotting as plotter
+from astropy.table import Table
+
 import time
-import multiprocessing as mp
-from multiprocessing import TimeoutError
 
-from numpy import transpose, round, array
+from pebble import ProcessPool
+from concurrent.futures import TimeoutError
+
+from numpy import round, array
 from numpy.random import choice
-import sys
 
 
-def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None, provided_psfs=None,
+def pipeline(config, max_bins=None, mag_table=None,
+             provided_bgs=None, provided_psfs=None,
              progress_bar=False, multiprocess_level='obj'):
     """
     Runs the entire simulation pipeline assuming certain data exists.
-    :param config_values: Values from properly loaded configuration file.
+    :param config: Values from properly loaded configuration file.
     :param max_bins: The number of bins to process (useful if running tests).
-    :param separate_mags: Optional array of magnitudes.
+    :param mag_table: Optional array of magnitudes.
+    :param mag_table_keys Keys for optional mag table binning.
     :param provided_bgs: A set of provided background cutouts [OPTIONAL].
     :param provided_psfs: A set of provided PSFs related to the provided backgrounds [OPTIONAL].
     :param progress_bar: Have a TQDM progress bar.
@@ -33,217 +37,176 @@ def pipeline(config_values, max_bins=None, separate_mags=None, provided_bgs=None
 
     """
 
-    binned_objects = tbridge.bin_catalog(config_values)
+    binned_objects = tbridge.bin_catalog(config)
     max_bins = len(binned_objects) if max_bins is None else max_bins
 
-    verbose = config_values["VERBOSE"]
+    verbose = config["VERBOSE"]
     if verbose:
         print(max_bins, "bins to process.")
 
-    if config_values["SAME_BGS"] and provided_bgs is None:
-        provided_bgs, provided_psfs = tbridge.get_backgrounds(config_values, n=50)
+    if config["SAME_BGS"] and provided_bgs is None:
+        provided_bgs, provided_psfs = tbridge.get_backgrounds(config, n=50)
 
-    if multiprocess_level == 'bin':
-        pool = mp.Pool(processes=config_values["CORES"])
-        results = [pool.apply_async(_process_bin, (b, config_values, separate_mags, provided_bgs,
-                                                   progress_bar, False))
-                   for b in binned_objects[:max_bins]]
-        [res.get() for res in results]
-    elif multiprocess_level == 'obj':
-        for b in binned_objects[:max_bins]:
-            _process_bin(b, config_values, separate_mags=separate_mags,
-                         provided_bgs=provided_bgs, progress_bar=progress_bar, multiprocess=True)
+    for b in binned_objects[:max_bins]:
 
-    tbridge.config_to_file(config_values, filename=config_values["OUT_DIR"] + "tbridge_config.txt")
+        if mag_table is not None:
+            separate_mags = tbridge.bin_mag_catalog(mag_table, b,
+                                                    mag_table_keys=[config["MASS_KEY"], config["Z_KEY"]],
+                                                    bin_keys=["MASSES", "REDSHIFTS"])[config["MAG_KEY"]]
+        else:
+            separate_mags = None
+
+        _process_bin(b, config, separate_mags=separate_mags,
+                     provided_bgs=provided_bgs, progress_bar=progress_bar, multiprocess=True)
+
+    tbridge.config_to_file(config, filename=config["OUT_DIR"] + "tbridge_config.txt")
 
 
-def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, progress_bar=False, multiprocess=False):
+def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
+                        progress_bar=False, multiprocess=False, profiles_per_row=3):
     """
-    Process a single bin of galaxies. (Tuned for pipeline usage but can be used on an individual basis.
-    :param b: Bin to obtain full profiles from.
-    :param config_values: Values from properly loaded configuration file.
-    :param separate_mags: Optional array of magnitudes.
-    :param provided_bgs: Array of provided backgrounds
-    :param progress_bar: Use a TQDM progress bar (note with multithreading this might get funky).
-    :param multiprocess: Run in multiprocessing mode.
-        This means both the model creation AND the
-    :return:
-    """
-
+        Process a single bin of galaxies. (Tuned for pipeline usage but can be used on an individual basis.
+        :param b: Bin to obtain full profiles from.
+        :param config_values: Values from properly loaded configuration file.
+        :param separate_mags: Optional array of magnitudes.
+        :param provided_bgs: Array of provided backgrounds
+        :param progress_bar: Use a TQDM progress bar (note with multithreading this might get funky).
+        :param multiprocess: Run in multiprocessing mode.
+            This means both the model creation AND the
+        :return:
+        """
     t_start = time.time()
     verbose = config_values["VERBOSE"]
 
-    # Load in information
+    # Load in bin information, and prepare all necessary structural parameters.
     keys, columns = b.return_columns()
     mags, r50s, ns, ellips = tbridge.pdf_resample(tbridge.structural_parameters(keys, columns), resample_size=1000)
     if separate_mags is not None:
         mags = tbridge.pdf_resample(separate_mags, resample_size=len(r50s))[0]
 
-    if multiprocess:
-        if verbose:
-            print("Simulating", config_values["N_MODELS"], "models for: ", b.bin_params)
+    # Simulate the model rows, using multiprocessing to speed things up######################
+    if verbose:
+        print("Processing", config_values["N_MODELS"], "models for: ", b.bin_params)
 
-        # Simulated galaxies using multiprocessing
-        with mp.Pool(processes=config_values["CORES"]) as pool:
-            models = tbridge.simulate_sersic_models(mags, r50s, ns, ellips,
-                                                    config_values, n_models=config_values["N_MODELS"])
+    # Prepare containers for simulations
+    job_list = []
+    full_profile_list, mask_infolist = [[] for i in range(profiles_per_row)], []
+    masked_cutouts, unmasked_cutouts = [], []
+    param_results = Table(data=None, names=["MAG", "R50", "I_R50", "N", "ELLIP", "PA"])
 
-            results = [pool.apply_async(_simulate_single_model, (models[i], config_values, provided_bgs))
-                       for i in range(0, len(models))]
+    # Get the original models
+    models, model_parameters = tbridge.simulate_sersic_models(mags, r50s, ns, ellips,
+                                                              config_values, n_models=config_values["N_MODELS"])
 
-            model_list = []
-            for res in results:
-                try:
-                    model_list.append(res.get(timeout=config_values["ALARM_TIME"] * 2))
-                except TimeoutError:
-                    print("Simulation TimeoutError")
-                    continue
+    # Run multithreaded simulation code
+    with ProcessPool(max_workers=config_values["CORES"]) as pool:
+        for i in range(len(models)):
+            job_list.append(pool.schedule(_process_model,
+                                          args=(models[i], config_values, model_parameters[i], provided_bgs),
+                                          timeout=config_values["ALARM_TIME"]))
+    # Collect the results
+    for i in range(len(job_list)):
+        try:
+            result = job_list[i].result()
+            profiles = result["PROFILES"]
+            if len(profiles) != profiles_per_row:
+                continue
+            # If we got enough profiles, append everything to the appropriate arrays
+            for i in range(len(full_profile_list)):
+                full_profile_list[i].append(profiles[i])
 
-            pool.terminate()
+            parameters = result["INFO"]
+            row = [parameters[key] for key in param_results.colnames]
+            param_results.add_row(row)
 
-        # Get all profile lists from our developed models.
-        if verbose:
-            print("Extracting Profiles for: ", b.bin_params)
+            mask_infolist.append(result["MASK_DATA"])
+            masked_cutouts.append(result["MASKED_CUTOUT"])
+            unmasked_cutouts.append(result["UNMASKED_CUTOUT"])
 
-        with mp.Pool(processes=config_values["CORES"]) as pool:
-            results = [pool.apply_async(tbridge.extract_profiles_single_row,
-                                        (model_list[i][0], config_values, model_list[i][1]))
-                       for i in range(0, len(model_list))]
+        except Exception as error:
+            print(error.args, i)
 
-            full_profile_list, timed_out_rows = [], []
-            for res in results:
-                try:
-                    full_profile_list.append(res.get(timeout=config_values["ALARM_TIME"]))
-                except TimeoutError:
-                    print("Extraction TimeoutError")
-                    continue
+    bg_info = [[], [], []]
+    for i in range(0, len(mask_infolist)):
+        bg_info[0].append(mask_infolist[i]["BG_MEAN"])
+        bg_info[1].append(mask_infolist[i]["BG_MEDIAN"])
+        bg_info[2].append(mask_infolist[i]["BG_STD"])
 
-            pool.terminate()
+    # Subtract the median values from the bgadded profiles
+    bg_sub_profiles = tbridge.subtract_backgrounds(full_profile_list[2], bg_info[1])
+    full_profile_list.append(bg_sub_profiles)
 
-        # If nothing worked just go to the next bin
-        if full_profile_list is None or len(full_profile_list) == 0:
-            return
+    if verbose:
+        print("Finished extraction. Saving info for", len(full_profile_list[0]),
+              "successful extractions out of", len(models), ".")
 
-        # Trim all empty arrays from the profile list
-        profile_list = [row for row in full_profile_list if len(row[0]) > 0]
+    # Save the profiles to the required places
+    tbridge.save_profiles(full_profile_list,
+                          bin_info=b.bin_params,
+                          out_dir=config_values["OUT_DIR"],
+                          keys=["bare", "noisy", "bgadded", "bgsub"],
+                          bg_info=bg_info,
+                          structural_params=param_results)
 
-        bg_info = []
-        for i in range(0, len(profile_list)):
-            # Every row is going to be a tuple with the list of model images, and the background info for that row.
-            row = profile_list[i]
-            bg_info.append(row[1])
-            profile_list[i] = row[0]
+    if config_values["SAVE_CUTOUTS"].lower() != 'none':
+        # Save images if demanded by the user
+        image_output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params)
+        image_indices = choice(len(unmasked_cutouts),
+                         size=int(len(unmasked_cutouts) * config_values["CUTOUT_FRACTION"]),
+                         replace=False)
+        # This is just to avoid an issue if the indices list is too small
+        if len(image_indices) == 1:
+            image_indices.append(0)
 
-        bg_info = transpose(bg_info)
-
-        # Reformat into a column-format
-        profile_list = _reformat_profile_list(profile_list)
-
-    # If not, simulate the bin serially
-    else:
-        if verbose:
-            print("Simulating Models for: ", b.bin_params)
-        # Generate all Sersic models
-        models = tbridge.simulate_sersic_models(mags, r50s, ns, ellips, config_values,
-                                                n_models=config_values["N_MODELS"])
-        # Generate BG added models in accordance to whether a user has provided backgrounds or not
-        if provided_bgs is None:
-            bg_added_models, convolved_models = tbridge.add_to_locations_simple(models[:], config_values)
-            bg_added_models, bg_info = tbridge.mask_cutouts(bg_added_models)
-        else:
-            convolved_models = tbridge.convolve_models(models, config_values)
-            bg_added_models = tbridge.add_to_provided_backgrounds(convolved_models, provided_bgs)
-            bg_added_models, bg_info = tbridge.mask_cutouts(bg_added_models)
-
-        noisy_models = tbridge.add_to_noise(convolved_models)
-
-        if verbose:
-            print("Extracting Profiles for: ", b.bin_params)
-
-        profile_list = tbridge.extract_profiles((convolved_models, noisy_models, bg_added_models), config_values,
-                                                progress_bar=progress_bar)
-
-    # Only save the profile in this bin if we have at least 1 set of profiles to save
-    if len(profile_list[0]) > 0:
-        if verbose:
-            print(len(profile_list[0]), "profiles extracted, wrapping up: ", b.bin_params)
-
-        # Estimate backgrounds and generate bg-subtracted profile list
-        backgrounds = bg_info[1]
-        bgsub_profiles = tbridge.subtract_backgrounds(profile_list[2], backgrounds)
-        profile_list.append(bgsub_profiles)
-
-        # Save profiles
-        tbridge.save_profiles(profile_list,
-                              bin_info=b.bin_params,
-                              out_dir=config_values["OUT_DIR"],
-                              keys=["bare", "noisy", "bgadded", "bgsub"],
-                              bg_info=bg_info)
-
-        unmasked_cutouts = array([row[2] for row in model_list])
-        full_cutouts = array([row[0][2] for row in model_list])
+        masked_cutouts, unmasked_cutouts = array(masked_cutouts)[image_indices], array(unmasked_cutouts)[image_indices]
 
         if config_values["SAVE_CUTOUTS"].lower() == 'stitch':
-            output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params) + "stitch.fits"
-            indices = choice(len(full_cutouts), size=int(len(full_cutouts) * config_values["CUTOUT_FRACTION"]),
-                             replace=False)
-            full_cutouts = full_cutouts[indices]
-            unmasked_cutouts = unmasked_cutouts[indices]
-            tbridge.cutout_stitch(unmasked_cutouts, masked_cutouts=full_cutouts, output_filename=output_filename)
-
+            tbridge.cutout_stitch(unmasked_cutouts, masked_cutouts=masked_cutouts,
+                                  output_filename=image_output_filename + "stitch.fits")
         if config_values["SAVE_CUTOUTS"].lower() == 'mosaic':
-            output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params) + ".png"
-            full_cutouts = full_cutouts[choice(len(full_cutouts),
-                                               size=int(len(full_cutouts) * config_values["CUTOUT_FRACTION"]),
-                                               replace=False)]
-            plotter.view_cutouts(full_cutouts, output=output_filename, log_scale=False)
+            plotter.view_cutouts(masked_cutouts, output=image_output_filename + ".png", log_scale=False)
         if config_values["SAVE_CUTOUTS"].lower() == 'fits':
             output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params) + ".png"
-            full_cutouts = full_cutouts[choice(len(full_cutouts),
-                                               size=int(len(full_cutouts) * config_values["CUTOUT_FRACTION"]),
-                                               replace=False)]
-            tbridge.save_cutouts(full_cutouts, output_filename=output_filename)
+            tbridge.save_cutouts(masked_cutouts, output_filename=output_filename)
 
     if verbose:
         print("Finished", b.bin_params, "-- Time Taken:", round((time.time() - t_start) / 60, 2), "minutes.")
-        if multiprocess:
-            print()
+        print()
 
 
-def _simulate_single_model(sersic_model, config_values, provided_bgs=None):
+def _process_model(sersic_model, config, model_params, provided_bgs=None):
     """
+    Run processing for a single model.
 
-    :param sersic_model:
-    :param config_values:
-    :param provided_bgs:
-    :return:
+    :param sersic_model: The input model to process
+    :param config: Configuration values loaded from config file
+    :param provided_bgs: OPTIONAL --- set of provided backgrounds
     """
-    # Generate BG added models in accordance to whether a user has provided backgrounds or not
-    model = [sersic_model]
+    # First make the input models
     if provided_bgs is None:
-        bg_added_model, convolved_model = tbridge.add_to_locations_simple(model, config_values)
+        bg_added_model, convolved_model = tbridge.add_to_background(sersic_model, config)
     else:
-        convolved_model = tbridge.convolve_models(model, config_values)
+        convolved_model = tbridge.convolve_models(sersic_model)
         bg_added_model = tbridge.add_to_provided_backgrounds(convolved_model, provided_bgs)
 
-    masked_model, bg_info = tbridge.mask_cutouts(bg_added_model, config=config_values)
-
-    # bg_info will be the mean, median, and std, in that order. (see tbridge.mask_cutouts)
-    bg_info = [bg_info[0][0], bg_info[1][0], bg_info[2][0]]
     noisy_model = tbridge.add_to_noise(convolved_model)
+    masked_model, mask_data = tbridge.mask_cutout(bg_added_model, config=config)
 
-    # print(type(convolved_model), type(noisy_model), type(bg_added_model), type(convolved_model[0]))
+    model_row = [convolved_model, noisy_model, masked_model]
 
-    return [convolved_model[0], noisy_model[0], masked_model[0]], bg_info, bg_added_model[0]
+    # Then extract everything we can
+    profile_extractions = []
+    for i in range(0, len(model_row)):
+        try:
+            extraction = tbridge.isophote_fitting(model_row[i], config=config)
+            profile_extractions.append(extraction.to_table())
+        except Exception as error:
+            print(error.args)
+            continue
 
-
-def _reformat_profile_list(profile_list):
-    """ Put the profiles (in a row-format) into the proper column format for saving. """
-
-    reformatted = [[] for i in range(0, len(profile_list[0]))]
-
-    for row in profile_list:
-        for i in range(0, len(row)):
-            reformatted[i].append(row[i])
-
-    return reformatted
+    # put the results into a dictionary format and return everything
+    return {"PROFILES": profile_extractions,
+            "MASK_DATA": mask_data,
+            "UNMASKED_CUTOUT": bg_added_model,
+            "MASKED_CUTOUT": masked_model,
+            "INFO": model_params}
