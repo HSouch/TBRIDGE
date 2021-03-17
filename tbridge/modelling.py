@@ -3,7 +3,7 @@ from astropy.modeling.models import Gaussian2D, Sersic2D
 from astropy.modeling import Fittable2DModel, Parameter
 from astropy.stats import sigma_clipped_stats
 
-from numpy import exp, isnan, mgrid, ceil, pi, cosh, cos, sin, sqrt, std
+from numpy import exp, isnan, mgrid, ceil, pi, cosh, cos, sin, sqrt, std, ndarray
 from numpy.random import choice, randint, uniform
 
 from photutils.datasets import make_noise_image
@@ -102,14 +102,14 @@ def simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=10):
     # Resample parameters and get a better distribution.
     mags, r50s, ns, ellips = tbridge.pdf_resample((mags, r50s, ns, ellips), 1000)
 
-    sersic_models = []
+    sersic_models, param_dicts = [], []
     for i in range(n_models):
         fails, clean = 0, False
         this_r50, this_n, this_ellip, this_mag, this_r50_pix, i_r50 = None, None, None, None, None, None
         while not clean:
             if fails > 10000:
                 break
-            obj_choice = randint(0, len(mags))
+            obj_choice = randint(0, len(mags),)
             this_mag = mags[obj_choice]
             this_r50 = r50s[obj_choice]  # This is in arcseconds
             this_r50_pix = this_r50 / arc_conv  # This is in pixels
@@ -125,13 +125,81 @@ def simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=10):
             if fails > 10000:
                 continue
 
+        pa = uniform(0, 2 * pi)
+        struct_param_dict = {"I_R50": i_r50,
+                             "R50": this_r50_pix,
+                             "N": this_n,
+                             "ELLIP": this_ellip,
+                             "PA": pa,
+                             "MAG": this_mag}
+
         sersic_model = Sersic2D(amplitude=i_r50, r_eff=this_r50_pix, n=this_n,
-                                ellip=this_ellip, theta=uniform(0, 2 * pi),
+                                ellip=this_ellip, theta=pa,
                                 x_0=cutout_size / 2, y_0=cutout_size / 2)
         z = sersic_model(x, y)
         sersic_models.append(z)
+        param_dicts.append(struct_param_dict)
 
-    return sersic_models
+    return sersic_models, param_dicts
+
+
+def add_to_background(model, config, convolve=True, return_bg_info=False, threshold=1e-4):
+    """
+    Add a model to a given background
+    """
+    image_dir, psf_filename = config["IMAGE_DIRECTORY"], config["PSF_FILENAME"]
+    image_filenames = tbridge.get_image_filenames(image_dir)
+    bg_infotable = {"IMAGES": [], "RAS": [], "DECS": [], "XS": [], "YS": []}
+
+    with fits.open(psf_filename) as psfs:
+        model_width = model.shape[0]
+        model_halfwidth = ceil(model_width / 2)
+
+        image_filename = choice(image_filenames)
+
+        fail_counter = 0
+
+        while 1:
+            fail_counter += 1
+            if fail_counter > 50:
+                return (None, None) if convolve else None
+
+            image = tbridge.select_image(image_filename)
+            image_wcs = tbridge.get_wcs(image_filename)
+
+            c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
+            c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
+            x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
+            y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
+
+            image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
+
+            # Check if the background std is less than a given
+            if threshold is not None:
+                bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
+                if bg_std < threshold:
+                    continue
+                else:
+                    break
+
+        ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
+        psf = tbridge.get_closest_psf(psfs, ra, dec).data
+
+        if return_bg_info:
+            bg_infotable["IMAGES"].append(image_filename)
+            bg_infotable["RAS"].append(ra)
+            bg_infotable["DECS"].append(dec)
+            bg_infotable["XS"].append(c_x)
+            bg_infotable["YS"].append(c_y)
+
+        if convolve:
+            convolved = convolve2d(model, psf, mode='same')
+            bg_added = convolved + image_cutout
+
+            return bg_added, convolved
+        else:
+            bg_added = model + image_cutout
+            return bg_added, None
 
 
 def add_to_locations_simple(models, config_values, convolve=True, return_bg_info=False, threshold=1e-4):
@@ -146,57 +214,74 @@ def add_to_locations_simple(models, config_values, convolve=True, return_bg_info
     """
 
     image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
+    image_filenames = tbridge.get_image_filenames(image_dir)
     bg_infotable = {"IMAGES": [], "RAS": [], "DECS": [], "XS": [], "YS": []}
 
+    def add_to_bg(model):
+        model_width = model.shape[0]
+        model_halfwidth = ceil(model_width / 2)
+
+        image_filename = choice(image_filenames)
+
+        image = tbridge.select_image(image_filename)
+        image_wcs = tbridge.get_wcs(image_filename)
+
+        if image is None:
+            return None
+
+        c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
+        c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
+        x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
+        y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
+
+        image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
+
+        # Check if the background std is less than a given
+        if threshold is not None:
+            bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
+            if bg_std < threshold:
+                return None
+
+        ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
+        psf = tbridge.get_closest_psf(psfs, ra, dec).data
+
+        if return_bg_info:
+            bg_infotable["IMAGES"].append(image_filename)
+            bg_infotable["RAS"].append(ra)
+            bg_infotable["DECS"].append(dec)
+            bg_infotable["XS"].append(c_x)
+            bg_infotable["YS"].append(c_y)
+
+        if convolve:
+            convolved = convolve2d(model, psf, mode='same')
+            convolved_models.append(convolved)
+            bg_added = convolved + image_cutout
+
+            return bg_added, convolved
+        else:
+            bg_added = model + image_cutout
+            return bg_added, None
+
     with fits.open(psf_filename) as psfs:
-        image_filenames = tbridge.get_image_filenames(image_dir)
-
         convolved_models, bg_added_models = [], []
+        if type(models) == ndarray:
+            try:
+                bg_added_model, convolved_model = add_to_bg(models)
+            except TypeError:
+                return None
 
-        for i in range(0, len(models)):
-            model_width = models[i].shape[0]
-            model_halfwidth = ceil(model_width / 2)
+            result = [bg_added_model, convolved_model, bg_infotable] if (return_bg_info and convolve) \
+                else [bg_added_model, convolved_model] if convolve else bg_added_model
+            return result
 
-            image_filename = choice(image_filenames)
-
-            image = tbridge.select_image(image_filename)
-            image_wcs = tbridge.get_wcs(image_filename)
-
-            if image is None:
-                continue
-
-            c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
-            c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
-            x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
-            y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
-
-            image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
-
-            # Check if the background std is less than a given
-            if threshold is not None:
-                bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
-                if bg_std < threshold:
+        else:
+            for i in range(0, len(models)):
+                results = add_to_bg(models[i])
+                if results is None:
                     continue
 
-            ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
-            psf = tbridge.get_closest_psf(psfs, ra, dec).data
-
-            # print(model_halfwidth, image.shape, type(image_wcs), c_x, c_y, psf.shape)
-            if convolve:
-                convolved_model = convolve2d(models[i], psf, mode='same')
-                convolved_models.append(convolved_model)
-                bg_added_model = convolved_model + image_cutout
-            else:
-                bg_added_model = models[i] + image_cutout
-
-            bg_added_models.append(bg_added_model)
-
-            if return_bg_info:
-                bg_infotable["IMAGES"].append(image_filename)
-                bg_infotable["RAS"].append(ra)
-                bg_infotable["DECS"].append(dec)
-                bg_infotable["XS"].append(c_x)
-                bg_infotable["YS"].append(c_y)
+                bg_added_models.append(results[0])
+                convolved_models.append(results[1])
 
     if return_bg_info:
 
@@ -224,14 +309,22 @@ def convolve_models(models, config_values=None, psf=None):
         psf_filename = config_values["PSF_FILENAME"]
         psfs = fits.open(psf_filename)
         convolved_models = []
-        for model in models:
+
+        if type(models) == ndarray:
             index = randint(0, len(psfs))
-            convolved_models.append(convolve2d(model, psfs[index].data, mode='same'))
+            return convolve2d(models, psfs[index].data, mode='same')
+        else:
+            for model in models:
+                index = randint(0, len(psfs))
+                convolved_models.append(convolve2d(model, psfs[index].data, mode='same'))
         psfs.close()
     elif psf is not None:
-        convolved_models = []
-        for model in models:
-            convolved_models.append(convolve2d(model, psf, mode='same'))
+        if type(models) == ndarray:
+            return convolve2d(models, psf, mode='same')
+        else:
+            convolved_models = []
+            for model in models:
+                convolved_models.append(convolve2d(model, psf, mode='same'))
     else:
         return None
 
@@ -241,9 +334,13 @@ def convolve_models(models, config_values=None, psf=None):
 def add_to_provided_backgrounds(models, backgrounds):
     bgadded_models = []
 
-    for model in models:
+    if type(models) == ndarray:
         index = randint(0, len(backgrounds))
-        bgadded_models.append(model + backgrounds[index])
+        return models + backgrounds[index]
+    else:
+        for model in models:
+            index = randint(0, len(backgrounds))
+            bgadded_models.append(model + backgrounds[index])
 
     return bgadded_models
 
@@ -257,10 +354,15 @@ def add_to_noise(models, bg_mean=0., bg_std=0.025):
     :return:
     """
     noisy_images = []
-    for model in models:
-        noise_image = make_noise_image((model.shape[0], model.shape[1]), mean=bg_mean, stddev=bg_std)
-        noisy_images.append(model + noise_image)
-    return noisy_images
+
+    if type(models) == ndarray:
+        noise_image = make_noise_image((models.shape[0], models.shape[1]), mean=bg_mean, stddev=bg_std)
+        return models + noise_image
+    else:
+        for model in models:
+            noise_image = make_noise_image((model.shape[0], model.shape[1]), mean=bg_mean, stddev=bg_std)
+            noisy_images.append(model + noise_image)
+        return noisy_images
 
 
 def simulate_bg_gaussians(n_bgs, n_models, width=251, noise_mean=0.001, noise_std=0.01,
