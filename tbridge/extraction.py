@@ -2,8 +2,8 @@ from numpy import max, pi, log
 from numpy import unravel_index, argmax, ceil
 from photutils import data_properties
 
-# from .isophote_l import Ellipse, EllipseGeometry
-from examples.isophote_l import Ellipse, EllipseGeometry
+# from isophote_l import Ellipse, EllipseGeometry
+from tbridge.isophote_l import Ellipse, EllipseGeometry
 
 from tqdm import tqdm
 
