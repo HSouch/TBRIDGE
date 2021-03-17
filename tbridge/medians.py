@@ -1,5 +1,5 @@
-from numpy import arange, nan, inf, sort, median, floor, max, nanmedian
-from numpy.random import choice
+from numpy import arange, nan, inf, sort, median, floor, max, nanmedian, transpose, asarray, std
+from numpy.random import choice, randint
 from scipy.interpolate import interp1d
 
 import multiprocessing as mp
@@ -23,7 +23,6 @@ def as_interpolations(profile_list, fill_value_type='min', x_key="sma", y_key="i
             interp = interp1d(sma, intens, bounds_error=False, fill_value=0)
             interps.append(interp)
         except ValueError:
-            print("ValueError in getting interpolation")
             continue
     return interps
 
@@ -36,102 +35,6 @@ def bin_max(profile_list, key="sma"):
         max_val = arr_max if arr_max > max_val else max_val
 
     return max_val
-
-
-def get_median(pop, bin_max, ignore_nans=True, profile_division=100):
-    """
-    Obtain the median profile for a bin of profiles. Takes "slices" along the x-axis, obtaining all profile values at
-    that slice, and populates a list of median values. Also obtains the upper and lower sigma values.
-
-    :param pop: The list of profiles to get the median of. (These are scipy interp1D objects)
-    :param bin_max: The value to extract the median out to. Defined as the maximum value of the largest profile.
-    :param profile_division: The number of slices to divide the semi-major axis into
-    """
-
-    # Sample 100 times along the x-axis
-    med_sma = arange(0, bin_max, bin_max / profile_division)
-
-    med_intens, upper_sigma_1sig, lower_sigma_1sig = [], [], []
-
-    for x_slice in med_sma:
-        slice_values = []
-        # Get all profile values at that slice
-        for profile in pop:
-            slice_value = profile(x_slice)
-            # Check if value is nan or infinite. If that is the case, skip over it
-            if slice_value in (nan, inf):
-                continue
-
-            slice_values.append(slice_value)
-
-        # Sort the values (for upper and lower sigmas)
-        slice_values = sort(slice_values)
-
-        # Take the median value and append it to the median list.
-        if ignore_nans:
-            median_value = nanmedian(slice_values)
-        else:
-            median_value = median(slice_values)
-        med_intens.append(median_value)
-
-    # Return the median_sma values, and the median
-    return med_sma, interp1d(med_sma, med_intens)
-
-
-def bootstrap_uncertainty(pop, bin_max, iterations=101):
-    """
-    :param pop: The list of profiles in the bin. (These are scipy interp1D objects)
-    :param bin_max: The value to extract medians out to. Defined as the maximum value of the largest profile.
-    :param iterations: The number of bootstrap populations to make.
-    """
-
-    # Prepare a list of bootstrapped medians
-    bootstrap_medians = []
-
-    # Make our bootstrap populations. For each population, make a median
-    for n in range(iterations):
-        bootstrap_pop = choice(pop, size=len(pop), replace=True)
-        bootstrap_medians.append(get_median(bootstrap_pop, bin_max)[1])
-
-    bootstrap_sma = arange(0, bin_max, bin_max / 100)
-    err_upper, err_lower = [], []
-
-    lower_sigma_1sig, lower_sigma_2sig, lower_sigma_3sig = [], [], []
-    upper_sigma_1sig, upper_sigma_2sig, upper_sigma_3sig = [], [], []
-    upper_sigma_5sig, lower_sigma_5sig = [], []
-
-    # Rerun the median method, but this time use the medians we generated from the bootstrapping
-    for x in bootstrap_sma:
-        slice_values = []
-        for median in bootstrap_medians:
-            slice_values.append(median(x))
-        slice_values.sort()
-
-        central_value = slice_values[int(floor(iterations / 2))]
-
-        lower_index_1sig, upper_index_1sig = int(len(slice_values) * 0.159), int(len(slice_values) * 0.841)
-
-        lower_index_2sig, upper_index_2sig = int(len(slice_values) * 0.023), int(len(slice_values) * 0.977)
-        lower_index_3sig, upper_index_3sig = int(len(slice_values) * 0.002), int(len(slice_values) * 0.998)
-
-        lower_sigma_1sig.append(slice_values[lower_index_1sig])
-        upper_sigma_1sig.append(slice_values[upper_index_1sig])
-
-        lower_sigma_2sig.append(slice_values[lower_index_2sig])
-        upper_sigma_2sig.append(slice_values[upper_index_2sig])
-
-        lower_sigma_3sig.append(slice_values[lower_index_3sig])
-        upper_sigma_3sig.append(slice_values[upper_index_3sig])
-
-        lower_sigma_5sig.append(slice_values[0])
-        upper_sigma_5sig.append(slice_values[len(slice_values) - 1])
-
-    # Return errors (for now as two arrays that can be plotted using the arange and bin max)
-    return bootstrap_sma, \
-        interp1d(bootstrap_sma, lower_sigma_1sig), interp1d(bootstrap_sma, upper_sigma_1sig), \
-        interp1d(bootstrap_sma, lower_sigma_2sig), interp1d(bootstrap_sma, upper_sigma_2sig),  \
-        interp1d(bootstrap_sma, lower_sigma_3sig), interp1d(bootstrap_sma, upper_sigma_3sig), \
-        interp1d(bootstrap_sma, lower_sigma_5sig), interp1d(bootstrap_sma, upper_sigma_5sig)
 
 
 def save_medians(median_data, bootstrap_data=None, output_filename="medians.fits"):
@@ -302,3 +205,116 @@ def load_median_info(filename):
     median_data["U_5SIG_ADJ"] = tbridge.adjust_profile(u["SMA"], u["INTENS_5SIG"])
 
     return median_data
+
+
+def bin_max(profiles, key="sma"):
+    bin_max = -999
+    for prof in profiles:
+        try:
+            prof_max = prof[key][-1]
+            if prof_max > bin_max:
+                bin_max = prof_max
+        except Exception as error:
+            continue
+    return bin_max
+
+
+def normalize_bin(profiles, bin_max, step=0.5, key="sma"):
+    new_sma = arange(0, bin_max + step, step)
+    normalized_profiles = [prof(new_sma) for prof in profiles]
+
+    return new_sma, asarray(normalized_profiles)
+
+
+def normalized_median(normalized_profiles, handle_nans=True):
+    if handle_nans:
+        median_prof = nanmedian(normalized_profiles, axis=0)
+    else:
+        median_prof = median(normalized_profiles, axis=0)
+    # print(median_prof.shape)
+    return median_prof
+
+
+def normalized_bootstrap(normalized_profiles, iterations=1001, gaussian=True, handle_nans=True):
+    true_median = normalized_median(normalized_profiles)
+
+    medians = []
+    bin_size = len(normalized_profiles)
+    for i in range(iterations):
+        pop = normalized_profiles[randint(0, bin_size, size=bin_size)]
+        medians.append(normalized_median(pop, handle_nans=handle_nans))
+
+    medians = asarray(medians)
+
+    # If we can assume a Gaussian distribution, this part is easy
+    if gaussian:
+        slices = std(transpose(medians), axis=1)
+
+        lower_1sig = true_median - slices
+        upper_1sig = true_median + slices
+
+        lower_2sig = true_median - 2 * slices
+        upper_2sig = true_median + 2 * slices
+
+        lower_3sig = true_median - 3 * slices
+        upper_3sig = true_median + 3 * slices
+
+        lower_5sig = true_median - 5 * slices
+        upper_5sig = true_median + 5 * slices
+
+        return {"L_1SIG": lower_1sig, "L_2SIG": lower_2sig, "L_3SIG": lower_3sig, "L_5SIG": lower_5sig,
+                "U_1SIG": upper_1sig, "U_2SIG": upper_2sig, "U_3SIG": upper_3sig, "U_5SIG": upper_5sig}
+
+    else:
+        slices = sort(transpose(medians))
+
+        lower_index_1sig, upper_index_1sig = int(iterations * 0.159), int(iterations * 0.841)
+        lower_index_2sig, upper_index_2sig = int(iterations * 0.023), int(iterations * 0.977)
+        lower_index_3sig, upper_index_3sig = int(iterations * 0.002), int(iterations * 0.998)
+
+        lower_1sig = [median_slice[lower_index_1sig] for median_slice in slices]
+        upper_1sig = [median_slice[upper_index_1sig] for median_slice in slices]
+
+        lower_2sig = [median_slice[lower_index_2sig] for median_slice in slices]
+        upper_2sig = [median_slice[upper_index_2sig] for median_slice in slices]
+
+        lower_3sig = [median_slice[lower_index_3sig] for median_slice in slices]
+        upper_3sig = [median_slice[upper_index_3sig] for median_slice in slices]
+
+        lower_5sig = [median_slice[0] for median_slice in slices]
+        upper_5sig = [median_slice[len(median_slice) - 1] for median_slice in slices]
+
+        return {"L_1SIG": lower_1sig, "L_2SIG": lower_2sig, "L_3SIG": lower_3sig, "L_5SIG": lower_5sig,
+                "U_1SIG": upper_1sig, "U_2SIG": upper_2sig, "U_3SIG": upper_3sig, "U_5SIG": upper_5sig}
+
+
+def median_pipeline(full_filename, output_filename=None, step=0.5):
+    profiles = tbridge.load_profile_set(full_filename)
+
+    bin_max_value = bin_max(profiles)
+    median_sma, normalized_profiles = normalize_bin(tbridge.as_interpolations(profiles), bin_max_value,
+                                                    step=step)
+
+    median_profile = normalized_median(normalized_profiles)
+    b_dict = normalized_bootstrap(normalized_profiles)
+
+    if output_filename is not None:
+        out_hdulist = fits.HDUList()
+
+        med_table = Table([median_sma, median_profile], names=["SMA", "INTENS"])
+
+        b_lower_table = Table([median_sma, b_dict["L_1SIG"],
+                               b_dict["L_2SIG"], b_dict["L_3SIG"], b_dict["L_5SIG"]],
+                              names=["SMA", "INTENS_1SIG", "INTENS_2SIG", "INTENS_3SIG", "INTENS_5SIG"])
+
+        b_upper_table = Table([median_sma, b_dict["U_1SIG"], b_dict["U_2SIG"],
+                               b_dict["U_3SIG"], b_dict["U_5SIG"]],
+                              names=["SMA", "INTENS_1SIG", "INTENS_2SIG", "INTENS_3SIG", "INTENS_5SIG"])
+
+        out_hdulist.append(fits.BinTableHDU(med_table))
+        out_hdulist.append(fits.BinTableHDU(b_lower_table))
+        out_hdulist.append(fits.BinTableHDU(b_upper_table))
+
+        out_hdulist.writeto(output_filename, overwrite=True)
+
+        return b_dict.update({"MEDIAN": med_table, "SMA": median_sma})
