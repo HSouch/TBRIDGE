@@ -1,3 +1,10 @@
+""" Surface brightness profile methods.
+
+This module contains all methods pertaining directly to surface brightness profiles measured using isophote fitting.
+
+"""
+
+
 import tbridge
 from numpy import trapz, copy, isnan, isinf, log10, arange, min, max, gradient, median, std
 from scipy.interpolate import interp1d
@@ -29,7 +36,7 @@ def get_half_light_radius(x, y):
     return best_index
 
 
-def sb_to_i(sb, m_0=27, a_pix=0.168**2):
+def sb_to_i(sb, m_0=27, a_pix=1):
     """ Convert a given surface brightness to an intensity.
 
     Args:
@@ -54,8 +61,7 @@ def adjust_profile(x, y, shift=0.00, clean=False, log_x=False):
         clean (bool): If true, clean nan and inf values from array (optional)
         log_x (bool): If True, log the radial intensities.
     Returns:
-        x_new: The adjusted radial array
-        y_new: The adjusted intensity array
+        x_new, y_new : The adjusted radial and intensity arrays
     """
 
     x_new, y_new = copy(x), copy(y)

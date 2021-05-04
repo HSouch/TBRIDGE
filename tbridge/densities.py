@@ -15,9 +15,12 @@ def cutout_gradient(cutout, depth_value=5):
         The returned gradient is the Nth largest gradient value, where N is
         defined by the user as depth_value.
 
-    :param cutout:
-    :param depth_value: Nth largest gradient value to return (default is 5).
-    :return:
+    Args:
+        cutout: The cutout to measure
+        depth_value: Nth largest gradient value to return (default is 5).
+
+    Returns:
+        The gradient of the submitted cutout.
     """
     x, y = mgrid[:cutout.shape[0], :cutout.shape[1]]
     cutout_centre = (cutout.shape[0] / 2, cutout.shape[1] / 2)
@@ -37,11 +40,15 @@ def cutout_gradient(cutout, depth_value=5):
 
 def cutout_gradients(cutouts, mask_cutouts=False):
     """
-    Return the gradients for a set of cutouts.
-    :param cutouts: List of cutouts.
-    :param mask_cutouts: Set to True if the input cutouts need to have light from
-        nearby objects masked first.
-    :return:
+    Return the gradients for a set of cutouts. (Convenience function).
+
+    Args:
+        cutouts: List of cutouts.
+        mask_cutouts: Set to True if the input cutouts need to have light from
+            nearby objects masked first.
+
+    Returns:
+        list: the gradients for the supplied cutouts.
     """
 
     if mask_cutouts:

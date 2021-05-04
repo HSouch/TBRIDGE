@@ -147,8 +147,17 @@ def median_pipeline(in_dir, config=tbridge.default_config_params(), multiprocess
 
     out_dir = in_dir[:len(in_dir) - 1] + "_medians/"
 
+    def generate_file_structure(out_dir, subdirs):
+        """ Generate a filestructure with N subdirs within the top directory out_dir"""
+        if not os.path.isdir(out_dir):
+            os.mkdir(out_dir)
+
+        for subdir in subdirs:
+            if not os.path.isdir(out_dir + subdir + "/"):
+                os.mkdir(out_dir + subdir + "/")
+
     subdirs = os.listdir(in_dir)
-    tbridge.generate_file_structure(out_dir, subdirs)
+    generate_file_structure(out_dir, subdirs)
 
     for subdir in subdirs[:]:
         if os.path.isfile(in_dir + subdir):

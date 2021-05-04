@@ -1,13 +1,23 @@
+""" Configuration settings methods.
+
+This module contains all methods required to properly set up or read a configuration file for use with TBriDGE.
+
+"""
+
 import urllib.request
 from numpy import arange
 
 
 def load_config_file(filename, verbose_test=False):
-    """
-    Loads in a config file for TBRIDGE to run
-    :param filename:
-    :param verbose_test:
-    :return:
+    """ Loads in a config file for TBRIDGE to run
+
+    Args:
+        filename: Filename (can be absolute or relative path, or a URL) to read config file from.
+        verbose_test: If true, will create a helpful printout of params to ensure that the parameters are
+            loading in properly.
+
+    Returns:
+        dict: Configuration file as a dict object.
     """
     config_values = {}
 
@@ -75,7 +85,6 @@ def print_config(config):
 def default_config_params():
     """
     Dumps a dict object containing all default parameters in proper type format.
-    :return:
     """
     default_params = {
         "VERBOSE": True,
@@ -183,11 +192,13 @@ def dump_default_config_file(directory=""):
 
 
 def config_to_file(config, filename="config_out.txt"):
+    """ Write a config dict to a file.
+
+    Args:
+        config (dict): The configuration parameters.
+        filename (str): The location where the parameters will be written.
+    """
     with open(filename, mode="w+") as f:
         for n in config:
             line = n + "\t" + str(config[n]) + "\t" + str(type(config[n])) + "\n"
             f.write(line)
-
-
-# load_config_file("../config.tbridge", verbose_test=False)
-# dump_default_config_file("../")

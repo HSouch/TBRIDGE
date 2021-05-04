@@ -220,3 +220,112 @@ Contains some out of date code and other snippets that might be useful in the fu
 #             reformatted[i].append(row[i])
 #
 #     return reformatted
+
+
+# def random_selection(coverage_table, ra_min, ra_max, dec_min, dec_max, band="i"):
+#     """ Selects an image based on a random RA and DEC selection. """
+#     for n in range(1000):
+#         ra, dec = uniform(ra_min, ra_max), uniform(dec_min, dec_max)
+#
+#         band_rows = []
+#         for row in coverage_table:
+#             filename = row["Image Filename"]
+#             filename_band = filename.split("/")[len(filename.split("/")) - 1].split("_")[0].split("-")[1].lower()
+#             if filename_band == band:
+#                 band_rows.append(row)
+#
+#         for row in band_rows:
+#             if row["ra_2"] < ra < row["ra_1"] and row["dec_1"] < dec < row["dec_2"]:
+#                 return row["Image Filename"]
+
+
+# def load_positions(location_table, n=100, ra_key="RA", dec_key="DEC", img_filename_key="img_filename",
+#                    check_band=False, band_key="band", band="i"):
+#     images, ras, decs = location_table[img_filename_key], location_table[ra_key], location_table[dec_key]
+#
+#     if check_band:
+#         bands, band_mask = location_table[band_key], []
+#         for i in range(0, len(bands)):
+#             if str(bands[i]) == band:
+#                 band_mask.append(True)
+#             else:
+#                 band_mask.append(False)
+#         band_mask = array(band_mask)
+#
+#         images, ras, decs = images[band_mask], ras[band_mask], decs[band_mask]
+#
+#     index_array = arange(0, len(images), 1, dtype=int)
+#     indices = choice(index_array, n, replace=True)
+#
+#     images, ras, decs = images[indices], ras[indices], decs[indices]
+#
+#     return array(images, dtype=str), array(ras), array(decs)
+
+
+# def generate_output_structure(out_dir):
+#     """ Generates the structure of the output filesystem, with outdir being the top-level directory.
+#     :param out_dir:
+#     :return:
+#     """
+#
+#     bare_profile_outdir = out_dir + "bare_profiles/"
+#     bgadded_profile_outdir = out_dir + "bgadded_profiles/"
+#     noisy_outdir = out_dir + "noisy_profiles/"
+#     psf_outdir = out_dir + "psf_profiles/"
+#     localsub_outdir = out_dir + "localsub_profiles/"
+#
+#     if not os.path.isdir(out_dir):
+#         os.mkdir(out_dir)
+#     for directory in (bare_profile_outdir, bgadded_profile_outdir, noisy_outdir, psf_outdir, localsub_outdir):
+#         if not os.path.isdir(directory):
+#             os.mkdir(directory)
+#
+#     return bare_profile_outdir, bgadded_profile_outdir, noisy_outdir, localsub_outdir, psf_outdir
+
+
+# def trim_hdulist(input_filename, indices, output_filename="out.fits"):
+#     """ Trims an HDUList based on a set of user-provided indices
+#     Args:
+#         input_filename: The filename
+#     :param indices:
+#     :param output_filename:
+#     :return: HDUList of size <= len(indices)
+#
+#     USAGE
+#     indices = [1, 4, 5, 8, 9, 10]
+#     trim_hdulist("input.fits", indices, output_filename="output.fits")
+#     """
+#
+#     HDUList = fits.open(input_filename)
+#     out_hdulist = fits.HDUList()
+#     print(len(HDUList))
+#     for n in range(0, len(HDUList)):
+#         if n in indices:
+#             out_hdulist.append(HDUList[n])
+#
+#     out_hdulist.writeto(output_filename, overwrite=True)
+
+
+# def extract_profiles_single_row(cutouts, config, bg_info=None):
+#     """ Extract profiles for a single row.
+#     Args:
+#         cutouts: A list of cutouts to extract. (Single row)
+#         config: Configuration parameters
+#         bg_info: Background info for the bg-added cutout (to maintain proper order in multithreading).
+#
+#     Returns:
+#         arr: list of profiles and background info
+#     """
+#
+#     output_profiles = []
+#
+#     for i in range(0, len(cutouts)):
+#         t = isophote_fitting(cutouts[i], config)
+#
+#         if len(t) > 0:
+#             output_profiles.append(t.to_table())
+#
+#     if len(output_profiles) == len(cutouts):
+#         return output_profiles, bg_info
+#     else:
+#         return [], None

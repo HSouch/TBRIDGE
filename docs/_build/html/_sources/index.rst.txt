@@ -7,9 +7,16 @@ TBriDGE Documentation
 ===================================
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   config.rst
-   simulating_galaxies.rst
-   pipelines.rst
+   docs/config.rst
+   docs/simulating_galaxies.rst
+   docs/pipelines.rst
+   
+   docs/source/tbridge.rst
 
+
+.. note::
+
+   TBriDGE is stil a work in progress and many methods, though feature complete and
+   should be completely free of bugs, are in need of continued optimization.
