@@ -3,6 +3,7 @@ import tbridge.plotting as plotter
 from astropy.table import Table
 
 import time
+import traceback
 
 from pebble import ProcessPool
 from concurrent.futures import TimeoutError
@@ -90,7 +91,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
 
     # Prepare containers for simulations
     job_list = []
-    full_profile_list, mask_infolist = [[] for i in range(profiles_per_row)], []
+    full_profile_list, bg_infolist, cutout_infolist = [[] for i in range(profiles_per_row)], [], []
     masked_cutouts, unmasked_cutouts = [], []
     param_results = Table(data=None, names=["MAG", "R50", "I_R50", "N", "ELLIP", "PA"])
 
@@ -119,18 +120,26 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
             row = [parameters[key] for key in param_results.colnames]
             param_results.add_row(row)
 
-            mask_infolist.append(result["MASK_DATA"])
+            bg_infolist.append(result["BG_DATA"])
+            cutout_infolist.append(result["CUTOUT_DATA"])
+
             masked_cutouts.append(result["MASKED_CUTOUT"])
             unmasked_cutouts.append(result["UNMASKED_CUTOUT"])
 
         except Exception as error:
             print(error.args, i)
 
-    bg_info = [[], [], []]
-    for i in range(0, len(mask_infolist)):
-        bg_info[0].append(mask_infolist[i]["BG_MEAN"])
-        bg_info[1].append(mask_infolist[i]["BG_MEDIAN"])
-        bg_info[2].append(mask_infolist[i]["BG_STD"])
+    bg_info, cutout_info = [[], [], []], [[], [], []]
+
+    for i in range(0, len(bg_infolist)):
+        bg_info[0].append(bg_infolist[i]["BG_MEAN"])
+        bg_info[1].append(bg_infolist[i]["BG_MEDIAN"])
+        bg_info[2].append(bg_infolist[i]["BG_STD"])
+    for i in range(0, len(cutout_infolist)):
+        cutout_info[0].append(cutout_infolist[i]["BG_MEAN"])
+        cutout_info[1].append(cutout_infolist[i]["BG_MEDIAN"])
+        cutout_info[2].append(cutout_infolist[i]["BG_STD"])
+
 
     # Subtract the median values from the bgadded profiles
     bg_sub_profiles = tbridge.subtract_backgrounds(full_profile_list[2], bg_info[1])
@@ -145,7 +154,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
                           bin_info=b.bin_params,
                           out_dir=config_values["OUT_DIR"],
                           keys=["bare", "noisy", "bgadded", "bgsub"],
-                          bg_info=bg_info,
+                          bg_info=bg_info, cutout_info=cutout_info,
                           structural_params=param_results)
 
     if config_values["SAVE_CUTOUTS"].lower() != 'none':
@@ -184,15 +193,22 @@ def _process_model(sersic_model, config, model_params, provided_bgs=None):
     """
     # First make the input models
     if provided_bgs is None:
-        bg_added_model, convolved_model = tbridge.add_to_background(sersic_model, config)
+        background, psf, bg_data = tbridge.get_background(config)
+        convolved_model = tbridge.convolve_models(sersic_model, psf=psf)
+        bg_added_model = convolved_model + background
+
     else:
         convolved_model = tbridge.convolve_models(sersic_model)
+
         bg_added_model = tbridge.add_to_provided_backgrounds(convolved_model, provided_bgs)
 
+    # Generate the noise model and mask the background-added model
     noisy_model = tbridge.add_to_noise(convolved_model)
     masked_model, mask_data = tbridge.mask_cutout(bg_added_model, config=config)
 
     model_row = [convolved_model, noisy_model, masked_model]
+
+    bg_mean, bg_median, bg_std = tbridge.estimate_background(bg_added_model, config, model_params=model_params)
 
     # Then extract everything we can
     profile_extractions = []
@@ -207,6 +223,8 @@ def _process_model(sersic_model, config, model_params, provided_bgs=None):
     # put the results into a dictionary format and return everything
     return {"PROFILES": profile_extractions,
             "MASK_DATA": mask_data,
+            "BG_DATA": bg_data,
+            "CUTOUT_DATA": {"BG_MEAN": bg_mean, "BG_MEDIAN": bg_median, "BG_STD": bg_std},
             "UNMASKED_CUTOUT": bg_added_model,
             "MASKED_CUTOUT": masked_model,
             "INFO": model_params}
