@@ -174,7 +174,7 @@ def add_to_background(model, config, convolve=True, return_bg_info=False, thresh
 
             image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
 
-            # Check if the background std is less than a given
+            # Check if the background std is less than a given threshold
             if threshold is not None:
                 bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
                 if bg_std < threshold:
@@ -192,6 +192,7 @@ def add_to_background(model, config, convolve=True, return_bg_info=False, thresh
             bg_infotable["XS"].append(c_x)
             bg_infotable["YS"].append(c_y)
 
+
         if convolve:
             convolved = convolve2d(model, psf, mode='same')
             bg_added = convolved + image_cutout
@@ -202,98 +203,57 @@ def add_to_background(model, config, convolve=True, return_bg_info=False, thresh
             return bg_added, None
 
 
-def add_to_locations_simple(models, config_values, convolve=True, return_bg_info=False, threshold=1e-4):
+def get_background(config, threshold=1e-4):
     """
-    Add a set of models to provided locations.
-    :param models: Set of models (ndarray format)
-    :param config_values:
-    :param convolve:
-    :param threshold: To avoid broken backgrounds (with a solid constant), set a minimum noise threshold.
-                      Set this to None if you don't want to check this
-    :return:
-    """
-
-    image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
+        Get a valid background and background info
+        """
+    image_dir, psf_filename = config["IMAGE_DIRECTORY"], config["PSF_FILENAME"]
     image_filenames = tbridge.get_image_filenames(image_dir)
-    bg_infotable = {"IMAGES": [], "RAS": [], "DECS": [], "XS": [], "YS": []}
+    bg_infotable = {}
 
-    def add_to_bg(model):
-        model_width = model.shape[0]
+    with fits.open(psf_filename) as psfs:
+        model_width = config["SIZE"]
         model_halfwidth = ceil(model_width / 2)
 
         image_filename = choice(image_filenames)
 
-        image = tbridge.select_image(image_filename)
-        image_wcs = tbridge.get_wcs(image_filename)
+        fail_counter = 0
 
-        if image is None:
-            return None
-
-        c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
-        c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
-        x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
-        y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
-
-        image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
-
-        # Check if the background std is less than a given
-        if threshold is not None:
-            bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
-            if bg_std < threshold:
+        while 1:
+            fail_counter += 1
+            if fail_counter > 50:
                 return None
 
+            image = tbridge.select_image(image_filename)
+            image_wcs = tbridge.get_wcs(image_filename)
+
+            c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
+            c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
+            x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
+            y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
+
+            image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
+
+            # Check if the background std is less than a given threshold
+            if threshold is not None:
+                bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
+                if bg_std < threshold:
+                    continue
+                else:
+                    break
         ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
         psf = tbridge.get_closest_psf(psfs, ra, dec).data
 
-        if return_bg_info:
-            bg_infotable["IMAGES"].append(image_filename)
-            bg_infotable["RAS"].append(ra)
-            bg_infotable["DECS"].append(dec)
-            bg_infotable["XS"].append(c_x)
-            bg_infotable["YS"].append(c_y)
+        bg_infotable["IMAGES"] = image_filename
+        bg_infotable["RAS"] = ra
+        bg_infotable["DECS"] = dec
+        bg_infotable["XS"] = c_x
+        bg_infotable["YS"] = c_y
+        bg_infotable["BG_MEAN"] = bg_mean
+        bg_infotable["BG_MEDIAN"] = bg_median
+        bg_infotable["BG_STD"] = bg_std
 
-        if convolve:
-            convolved = convolve2d(model, psf, mode='same')
-            convolved_models.append(convolved)
-            bg_added = convolved + image_cutout
-
-            return bg_added, convolved
-        else:
-            bg_added = model + image_cutout
-            return bg_added, None
-
-    with fits.open(psf_filename) as psfs:
-        convolved_models, bg_added_models = [], []
-        if type(models) == ndarray:
-            try:
-                bg_added_model, convolved_model = add_to_bg(models)
-            except TypeError:
-                return None
-
-            result = [bg_added_model, convolved_model, bg_infotable] if (return_bg_info and convolve) \
-                else [bg_added_model, convolved_model] if convolve else bg_added_model
-            return result
-
-        else:
-            for i in range(0, len(models)):
-                results = add_to_bg(models[i])
-                if results is None:
-                    continue
-
-                bg_added_models.append(results[0])
-                convolved_models.append(results[1])
-
-    if return_bg_info:
-
-        if convolve:
-            return bg_added_models, convolved_models, bg_infotable
-        else:
-            return bg_added_models, bg_infotable
-    else:
-        if convolve:
-            return bg_added_models, convolved_models
-        else:
-            return bg_added_models
+    return image_cutout, psf, bg_infotable
 
 
 def convolve_models(models, config_values=None, psf=None):
@@ -332,10 +292,11 @@ def convolve_models(models, config_values=None, psf=None):
 
 
 def add_to_provided_backgrounds(models, backgrounds):
-    bgadded_models = []
+    bgadded_models, bg_datatables = [], []
 
     if type(models) == ndarray:
         index = randint(0, len(backgrounds))
+
         return models + backgrounds[index]
     else:
         for model in models:
