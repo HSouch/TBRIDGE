@@ -186,7 +186,7 @@ def generate_file_prefix(bin_params):
     return prefix
 
 
-def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None, structural_params=None):
+def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None, cutout_info=None, structural_params=None):
     """
     Saves a set of profiles into a properly formatted output directory, with proper filename format.
     :param profile_list: The list of profiles (shape is m x n, where m is the number of different models for each
@@ -224,18 +224,21 @@ def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None, structura
 
         out_hdulist.writeto(out_dir + subdirs[i] + out_filename, overwrite=True)
 
+    # Save the additional available information
     if bg_info is not None:
         if not os.path.isdir(out_dir + "bg_info/"):
             os.mkdir(out_dir + "bg_info/")
         tbridge.save_array(bg_info, out_dir + "bg_info/" + filename_prefix + "bgs.npy")
+    if cutout_info is not None:
+        if not os.path.isdir(out_dir + "cutout_info/"):
+            os.mkdir(out_dir + "cutout_info/")
+        tbridge.save_array(cutout_info, out_dir + "cutout_info/" + filename_prefix + "bgs.npy")
 
     if structural_params is not None:
         if not os.path.isdir(out_dir + "params/"):
             os.mkdir(out_dir + "params/")
         structural_params.write(out_dir + "params/" + tbridge.generate_file_prefix(bin_info) + "params.fits",
                                 format="fits", overwrite=True)
-
-
     return None
 
 
@@ -442,7 +445,7 @@ def get_backgrounds(config_values, n=50, return_psfs=True, return_bg_info=True):
 
 
 def as_dir(directory):
-    if directory[-1] is not '/':
+    if directory[-1] != '/':
         return directory + "/"
     else:
         return directory
