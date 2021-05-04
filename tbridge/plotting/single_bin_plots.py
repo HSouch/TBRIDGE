@@ -51,7 +51,7 @@ def single_bin_plot(table_arrays, colours=None, ind_profile_alpha=1, medians=Fal
 
     plt.tight_layout()
 
-    if output is "":
+    if output == "":
         plt.show()
     else:
         plt.savefig(output, dpi=dpi)
