@@ -6,8 +6,9 @@ from tqdm import tqdm
 from astropy.table import Table
 from astropy.convolution import Gaussian2DKernel
 from astropy.stats import gaussian_fwhm_to_sigma, sigma_clipped_stats
-from numpy import copy, ndarray, floor, nan, sum, ndarray
+from numpy import copy, ndarray, floor, nan, sum, ndarray, nanmean, nanmedian, nanstd
 from photutils import detect_threshold, detect_sources, deblend_sources, make_source_mask
+from photutils.aperture import CircularAnnulus, EllipticalAnnulus
 
 
 def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omit_centre=True,
@@ -42,6 +43,7 @@ def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omi
         bg_mask = make_source_mask(cutout, nsigma=2, npixels=3, dilate_size=7)
     except TypeError:
         bg_mask = make_source_mask(cutout, snr=2, npixels=3, dilate_size=7)
+
     bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
     # Generate source mask
@@ -116,7 +118,23 @@ def boolean_mask(mask, omit=None):
     return bool_mask
 
 
-def estimate_background(cutout):
+def estimate_background(cutout, config, model_params=None):
+    if config["BG_PARAMS"] == "ellipse" and model_params is not None:
+        bg_mean, bg_median, bg_std = estimate_bg_elliptical_annulus(cutout,
+                                                                            ellipticity=model_params["ELLIP"],
+                                                                            r_50=model_params["R50"],
+                                                                            pa=model_params["PA"],
+                                                                            width=50,
+                                                                            factor=20)
+    elif config["BG_PARAMS"] == 'circle':
+        bg_mean, bg_median, bg_std = estimate_bg_annulus(cutout, dynamic=True, annulus_width=50)
+    else:
+        bg_mean, bg_median, bg_std = estimate_background_sigclip(cutout)
+
+    return bg_mean, bg_median, bg_std
+
+
+def estimate_background_sigclip(cutout):
     """ Estimate the background mean, median, and standard deviation of a cutout using sigma-clipped-stats """
     try:
         bg_mask = make_source_mask(cutout, nsigma=2, npixels=3, dilate_size=7)
@@ -126,6 +144,74 @@ def estimate_background(cutout):
     bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
     return bg_mean, bg_median, bg_std
+
+
+def estimate_bg_annulus(cutout, annulus_radius=50, annulus_width=10, dynamic=True, **kwargs):
+    """
+    Measure the background of a cutout using a circular annulus
+    """
+
+    args = {"nsigma": 2, "npixels": 5, "dilate_size": 11, "sigclip_iters":5}
+    for arg in kwargs:
+        args[arg] = kwargs[arg]
+
+    if dynamic:
+        annulus_radius = (cutout.shape[0] / 2) - annulus_width
+    # First generate a background source mask for the input cutout
+    bg_mask = make_source_mask(cutout,
+                               nsigma=args["nsigma"],
+                               npixels=args["npixels"],
+                               dilate_size=args["dilate_size"],
+                               sigclip_iters=args["sigclip_iters"])
+
+    # Generate the annulus
+    annulus = CircularAnnulus([cutout.shape[0] / 2, cutout.shape[1] / 2],
+                              r_in=annulus_radius,
+                              r_out=annulus_radius + annulus_width)
+
+    # Generate a mask from the annulus and ensure it can be properly added to the cutout
+    annulus_mask = annulus.to_mask(method='center')
+    annulus_mask = annulus_mask.to_image(shape=cutout.shape)
+    annulus_mask[annulus_mask == 0] = nan
+
+    # Get the background pixels and remove any masked pixels
+    bg_pixels = cutout * annulus_mask
+    bg_pixels[bg_mask] = nan
+
+    # Run our basic statistics and return them
+    mean, median, std = nanmean(bg_pixels), nanmedian(bg_pixels), nanstd(bg_pixels)
+    return mean, median, std
+
+
+def estimate_bg_elliptical_annulus(cutout, ellipticity=0, r_50=50, pa=0, width=20, factor=10, return_mask=False):
+    """
+    Measure the background of a cutout using an elliptical annulus.
+    """
+    a_in = r_50 * factor
+    b_in = a_in * (1 - ellipticity)
+
+    a_out, b_out = a_in + width, b_in + width
+
+    bg_mask = make_source_mask(cutout, nsigma=2, npixels=2, dilate_size=11)
+
+    annulus = EllipticalAnnulus([cutout.shape[0] / 2, cutout.shape[1] / 2],
+                                a_in=a_in, a_out=a_out,
+                                b_in=b_in, b_out=b_out,
+                                theta=pa)
+
+    annulus_mask = annulus.to_mask(method='center')
+    annulus_mask = annulus_mask.to_image(shape=cutout.shape)
+    annulus_mask[annulus_mask == 0] = nan
+
+    bg_pixels = cutout * annulus_mask
+    bg_pixels[bg_mask] = nan
+
+    mean, median, std = nanmean(bg_pixels), nanmedian(bg_pixels), nanstd(bg_pixels)
+
+    if return_mask:
+        return mean, median, std, bg_pixels
+    else:
+        return mean, median, std
 
 
 def mask_cutouts(cutouts, config=None, method='standard', progress_bar=False):
@@ -175,7 +261,7 @@ def estimate_background_set(cutouts):
     bg_means, bg_medians, bg_stds = [], [], []
 
     for cutout in cutouts:
-        bg_mean, bg_median, bg_std = estimate_background(cutout)
+        bg_mean, bg_median, bg_std = estimate_background_sigclip(cutout)
 
         bg_means.append(bg_mean)
         bg_medians.append(bg_median)
