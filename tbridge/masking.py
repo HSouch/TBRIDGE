@@ -13,18 +13,20 @@ from photutils.aperture import CircularAnnulus, EllipticalAnnulus
 
 def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omit_centre=True,
                 clip_negatives=True):
-    """
-    Masks a cutout. Users can specify parameters to adjust the severity of the mask. Default
-    parameters strikes a decent balance.
-    :param cutout: Input cutout to mask.
-    :param config Input config file
-    :param nsigma: The brightness requirement for objects.
-    :param gauss_width: The width of the gaussian kernel.
-    :param npixels: The minimum number of pixels that an object must be comprised of to be considered a source.
-    :param omit_centre: Set as true to leave the central object unmasked.
-    :param clip_negatives: Remove negative pixels that are 3 sigma below the median BG level
+    """ Masks a cutout. Users can specify parameters to adjust the severity of the mask. Default
+        parameters strikes a decent balance.
+
+    Args:
+        cutout: Input cutout to mask.
+        config Input config file
+        nsigma: The brightness requirement for objects.
+        gauss_width: The width of the gaussian kernel.
+        npixels: The minimum number of pixels that an object must be comprised of to be considered a source.
+        omit_centre: Set as true to leave the central object unmasked.
+        clip_negatives: Remove negative pixels that are 3 sigma below the median BG level
                            (This is to get rid of artifacts).
-    :return:
+    Returns:
+        The masked cutout and the associated mask data in tuple format.
     """
 
     # If provided with a config file, set the parameters to what is given by the user.
@@ -68,7 +70,20 @@ def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omi
 
 
 def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
-    """ Generates a given mask based on the input parameters """
+    """ Generates a given mask based on the input parameters
+
+
+    Args:
+        cutout:     input cutout (2D-Array)
+        nsigma:     Number of sigma levels above the measured background pixels are required to be
+                    at to be flagged as belonging to an object.
+        gauss_width: The gaussian width of the smoothing kernal for the mask.
+        npixels:    The number of connected pixels required in order for something to be considered an object in the
+                    segmentation map.
+
+    Returns:
+        The segment array as a 2D array
+    """
 
     sigma = gauss_width * gaussian_fwhm_to_sigma
     kernel = Gaussian2DKernel(sigma).normalize()
@@ -97,11 +112,10 @@ def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
 
 
 def boolean_mask(mask, omit=None):
-    """
-    Turns a given mask (photutils segment array) into a boolean array)
-    :param mask:
-    :param omit:
-    :return:
+    """ Turns a given mask (photutils segment array) into a boolean array)
+
+    Args:
+        omit: If None, mask everything. Otherwise if an int or a list, do not mask those specified.
     """
     if omit is None:
         omit = []
@@ -119,6 +133,16 @@ def boolean_mask(mask, omit=None):
 
 
 def estimate_background(cutout, config, model_params=None):
+    """
+    Estimate the background for a cutout using some of the various available methods based on what is set in the
+    configuration file.
+
+    OPTIONS:
+        ellipse: uses elliptical annuli to estimate the cutout
+        circle: uses a circular annuli
+        sigclip (DEFAULT): measures the background using sigma-clipping.
+
+    """
     if config["BG_PARAMS"] == "ellipse" and model_params is not None:
         bg_mean, bg_median, bg_std = estimate_bg_elliptical_annulus(cutout,
                                                                             ellipticity=model_params["ELLIP"],
@@ -215,16 +239,19 @@ def estimate_bg_elliptical_annulus(cutout, ellipticity=0, r_50=50, pa=0, width=2
 
 
 def mask_cutouts(cutouts, config=None, method='standard', progress_bar=False):
-    """
-    Mask a set of cutouts according to a certain method.
-    :param cutouts:
-    :param config: User configuration file.
-    :param method: Which method to use.
-        standard : normal method. regular mask parameters. omits mask on central object
-        no_central: regular mask parameters. masks central object
-        background: background method: more severe mask parmeters. masks central object
-    :param progress_bar: Use a TQDM progress bar.
-    :return: list of masked cutouts
+    """ Mask a set of cutouts according to a certain method.
+
+    Args:
+        cutouts:
+        config: User configuration file.
+        method: Which method to use.
+            standard : normal method. regular mask parameters. omits mask on central object
+            no_central: regular mask parameters. masks central object
+            background: background method: more severe mask parmeters. masks central object
+        progress_bar: Use a TQDM progress bar.
+
+    Returns:
+        list of masked cutouts
     """
     masked_cutouts = []
     bg_means, bg_medians, bg_stds = [], [], []
