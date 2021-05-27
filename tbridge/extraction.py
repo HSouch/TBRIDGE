@@ -52,10 +52,9 @@ def isophote_fitting(data, config=None, centre_method='standard'):
     try:
         morph_cat = data_properties(log(data))
         r = 2.0
-        pos = (morph_cat.xcentroid.value, morph_cat.ycentroid.value)
-
-        a = morph_cat.semimajor_axis_sigma.value * r
-        b = morph_cat.semiminor_axis_sigma.value * r
+        pos = (morph_cat.xcentroid, morph_cat.ycentroid)
+        a = morph_cat.semimajor_sigma.value * r
+        b = morph_cat.semiminor_sigma.value * r
         theta = morph_cat.orientation.value
 
         geometry = EllipseGeometry(pos[0], pos[1], sma=a, eps=(1 - (b / a)), pa=theta)
