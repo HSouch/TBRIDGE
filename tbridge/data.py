@@ -1,19 +1,20 @@
 """
-
 This module contains all general-purpose functions for loading and saving data. This includes pulling data out of
 FITS files, saving TBriDGE simulation outputs, and more.
 """
 
 import tbridge
 import os
+import math
 from pathlib import Path
 
 from astropy.io import fits
 from astropy.wcs import wcs
 from astropy.table import Table
+from astropy.nddata import Cutout2D, NoOverlapError
 
-from numpy import arange, array, sqrt, str, save, load, ceil, zeros, isnan
-from numpy.random import choice, uniform, randint
+from numpy import sqrt, str, save, load, ceil, zeros, isnan, ceil, sort
+from numpy.random import choice, randint
 
 
 def get_closest_psf(psfs, obj_ra, obj_dec):
@@ -37,7 +38,8 @@ def get_closest_psf(psfs, obj_ra, obj_dec):
 
 
 def get_wcs(fits_filename):
-    """ Finds and returns the WCS for an image. If Primary Header WCS no good, searches each index until a good one
+    """
+        Finds and returns the WCS for an image. If Primary Header WCS no good, searches each index until a good one
         is found. If none found, raises a ValueError
     """
     # Try just opening the initial header
@@ -59,6 +61,135 @@ def get_wcs(fits_filename):
         hdu_list.close()
 
     raise ValueError
+
+
+def get_arc_conv(w: wcs.WCS):
+    """ Gets pixels to arc-seconds conversion scale (Number of arcseconds per pixel) """
+    pix_x, pix_y = 1, 1
+    ra_1, dec_1 = w.wcs_pix2world(pix_x, pix_y, 0)
+    ra_2, dec_2 = w.wcs_pix2world(pix_x + 1, pix_y + 1, 0)
+    diff_1 = abs(ra_1 - ra_2) * 3600
+    diff_2 = abs(dec_1 - dec_2) * 3600
+    return (diff_1 + diff_2) / 2
+
+
+def get_angular_size_dist(z, H0=71, WM=0.27, WV=None):
+    """
+    Return the angular size distance in Megaparsecs.
+    (Stripped down version of Cosmocalc by Ned Wright and Tom Aldcroft (aldcroft@head.cfa.harvard.edu))
+    """
+    try:
+        c = 299792.458  # velocity of light in km/sec
+
+        if z > 100:
+            z /= 299792.458  # Values over 100 are in km/s
+
+        if WV is None:
+            WV = 1.0 - WM - 0.4165 / (H0 * H0)  # Omega(vacuum) or lambda
+        age = 0.0  # age of Universe in units of 1/H0
+
+        h = H0 / 100.
+        WR = 4.165E-5 / (h * h)  # includes 3 massless neutrino species, T0 = 2.72528
+        WK = 1 - WM - WR - WV
+        az = 1.0 / (1 + 1.0 * z)
+        n = 1000  # number of points in integrals
+        for i in range(n):
+            a = az * (i + 0.5) / n
+            adot = math.sqrt(WK + (WM / a) + (WR / (a * a)) + (WV * a * a))
+            age += 1. / adot
+
+        DCMR = 0.0
+
+        # do integral over a=1/(1+z) from az to 1 in n steps, midpoint rule
+        for i in range(n):
+            a = az + (1 - az) * (i + 0.5) / n
+            adot = math.sqrt(WK + (WM / a) + (WR / (a * a)) + (WV * a * a))
+            DCMR = DCMR + 1. / (a * adot)
+
+        DCMR = (1. - az) * DCMR / n
+
+        # tangential comoving distance
+        ratio = 1.0
+        x = math.sqrt(abs(WK)) * DCMR
+        if x > 0.1:
+            if WK > 0:
+                ratio = 0.5 * (math.exp(x) - math.exp(-x)) / x
+            else:
+                ratio = math.math.sin(x) / x
+        else:
+            y = x * x
+            if WK < 0:
+                y = -y
+            ratio = 1. + y / 6. + y * y / 120.
+        DCMT = ratio * DCMR
+        DA = az * DCMT
+        Mpc = lambda x: c / H0 * x
+        DA_Mpc = Mpc(DA)
+
+        return DA_Mpc
+    except:
+        raise ValueError
+
+
+def generate_cutout(image, position, img_wcs=None, size=91, world_coords=True):
+    """
+    Generates a cutout for a given image. Uses world coordinates by default, but can be configured to take
+    in a position corresponding to the actual array indices.
+    :param image:
+    :param position:
+    :param wcs:
+    :param size:
+    :param world_coords:
+    :return:
+    """
+
+    if size < 71:
+        size = 71
+    elif size % 2 == 0:
+        size += 1
+
+    if world_coords:
+        coord = img_wcs.wcs_world2pix(position[0], position[1], 0, ra_dec_order=True)
+        pix_x, pix_y = coord[0], coord[1]
+    else:
+        pix_x, pix_y = position[0], position[1]
+
+    # Send an index error iff the position does not lie in the image.
+    if 0 < pix_x < image.shape[0] and 0 < pix_y < image.shape[1]:
+        try:
+            cut = Cutout2D(image, (pix_x, pix_y), size)
+            return cut.data
+        except NoOverlapError:
+            raise IndexError
+    else:
+        raise IndexError
+
+
+def trim_objects(obj_catalog, ras, decs, mag_lim=None, ra_key="RA", dec_key="DEC", mag_key="i"):
+    this_catalog = obj_catalog[obj_catalog[ra_key] > ras[0]]
+    this_catalog = this_catalog[this_catalog[ra_key] < ras[1]]
+
+    this_catalog = this_catalog[this_catalog[dec_key] > decs[0]]
+    this_catalog = this_catalog[this_catalog[dec_key] < decs[1]]
+
+    if mag_lim is not None:
+        this_catalog = this_catalog[this_catalog[mag_key] > mag_lim[0]]
+        this_catalog = this_catalog[this_catalog[mag_key] < mag_lim[1]]
+
+    return this_catalog
+
+
+def extraction_limits(image_wcs, image_shape, cutout_size):
+    """ Get the minimum and maximum RA and DEC limits for a given cutout size and image"""
+    half_width = ceil(cutout_size / 2)
+
+    pix_min = image_wcs.wcs_pix2world(half_width, half_width, 0)
+    pix_max = image_wcs.wcs_pix2world(image_shape[0] - half_width, image_shape[1] - half_width, 0)
+
+    ras = sort((pix_min[0], pix_max[0]))
+    decs = sort((pix_min[1], pix_max[1]))
+
+    return ras, decs
 
 
 def get_image_filenames(images_directory, image_band="i", check_band=False):
