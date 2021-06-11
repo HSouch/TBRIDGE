@@ -49,7 +49,6 @@ def load_config_file(filename, verbose_test=False):
         elif value.lower() == "false":
             config_values[n] = False
             continue
-
     config_values["SIZE"] = int(config_values["SIZE"])
     config_values["CORES"] = int(config_values["CORES"])
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
@@ -57,6 +56,7 @@ def load_config_file(filename, verbose_test=False):
     config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
     config_values["ALARM_TIME"] = int(config_values["ALARM_TIME"])
     config_values["CUTOUT_FRACTION"] = float(config_values["CUTOUT_FRACTION"])
+
 
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
@@ -132,8 +132,8 @@ def default_config_params():
 def dump_default_config_file(directory=""):
     """
     Dumps a default configuration file with all necessary parameters in the directory
-    :param directory:
-    :return:
+    Args:
+        directory: Directory to write file to. OPTIONAL.
     """
     lines = ["# Set verbosity printouts. VERBOSE: General printouts. TEST_VERBOSE: Additional printouts.",
              "VERBOSE             = True",
@@ -202,3 +202,95 @@ def config_to_file(config, filename="config_out.txt"):
         for n in config:
             line = n + "\t" + str(config[n]) + "\t" + str(type(config[n])) + "\n"
             f.write(line)
+
+
+def dump_default_config_file_koe(directory=""):
+    """
+    Dumps a default configuration file with all necessary parameters for using the KOE extraction pipeline.
+    Args:
+        directory: Directory to write file to. OPTIONAL.
+    """
+    lines = ["# Set verbosity printouts. VERBOSE: General printouts. TEST_MODE: Only extract 10 profiles as a check .",
+             "VERBOSE             = True",
+             "TEST_MODE        = False",
+             "",
+             "# Directories and filenames -- Input and output",
+             "CATALOG             = cat.fits",
+             "IMAGE_DIRECTORY     = images/",
+             "OUT_DIR             = out/",
+             "",
+             "# Keys for RA, DEC, and Z",
+             "RA                  = RA:",
+             "DEC                 = DEC",
+             "",
+             "# Cutout size, band, num-cores, arcseconds per pix",
+             "SIZE                = 100",
+             "BAND                = i",
+             "CORES               = 4",
+             "ARC_CONV            = 0.2",
+             "",
+             "# Parameters for profile extraction.",
+             "LINEAR              = True",
+             "LINEAR_STEP         = 1",
+             "USE_ALARM           = True",
+             "ALARM_TIME          = 60",
+             "",
+             "# Parameters for Masking and background estimation ... NSIGMA, GAUSS_WIDTH, NPIX",
+             "# Options for BG estimation: ellipse, circle, sigmaclip",
+             "MASK_PARAMS         = 1, 2.0, 11",
+             "BG_PARAMS           = sigmaclip"
+             ]
+
+    with open(directory + "koe_config.tbridge", "w+") as f:
+        for n in lines:
+            f.write(n + "\n")
+
+
+def load_config_file_koe(filename):
+    """ Loads in a config file for KOE to run
+
+    Args:
+        filename: Filename (can be absolute or relative path, or a URL) to read config file from.
+    Returns:
+        dict: Configuration file as a dict object.
+    """
+    config_values = {}
+
+    # First try to open things locally. If that doesn't work try it as a URL
+    try:
+        config_lines = open(filename, "r").readlines()
+    except FileNotFoundError:
+        try:
+            r = urllib.request.urlopen(filename)
+            config_lines = []
+            for line in r:
+                config_lines.append(line.decode("utf-8"))
+        except:
+            print("Failed to get any file")
+            return None
+
+    for line in config_lines:
+        line = line.strip()
+        if len(line) == 0 or line[0] == "#":
+            continue
+        splits = line.split("=")
+        config_values[splits[0].strip()] = splits[1].strip()
+
+    for n in config_values:
+        value = config_values[n]
+        if value.lower() == "true":
+            config_values[n] = True
+            continue
+        elif value.lower() == "false":
+            config_values[n] = False
+            continue
+    config_values["SIZE"] = int(config_values["SIZE"])
+    config_values["CORES"] = int(config_values["CORES"])
+    config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
+    config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
+    config_values["ALARM_TIME"] = int(config_values["ALARM_TIME"])
+
+    value_string = config_values["MASK_PARAMS"].split(",")
+    config_values["MASK_PARAMS"] = [float(value_string[0]), float(value_string[1]), int(value_string[2])]
+
+    return config_values
