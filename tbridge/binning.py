@@ -133,19 +133,19 @@ def select_bin(bin_list, values):
     return None
 
 
-def generate_objects(params):
+def generate_objects(columns):
     """ Reorganizes the table columns into an object-format
     Args:
-        params: A list of table columns
+        columns: A list of table columns
 
     Returns:
         List of objects.
     """
     objects = []
-    for i in range(0, len(params[0])):
+    for i in range(0, len(columns[0])):
         this_obj = []
-        for j in range(0, len(params)):
-            this_obj.append(params[j][i])
+        for j in range(0, len(columns)):
+            this_obj.append(columns[j][i])
         objects.append(this_obj)
     return objects
 
