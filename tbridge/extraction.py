@@ -34,7 +34,6 @@ def isophote_fitting(data, config=None, centre_method='standard'):
     linear = False if config is None else config["LINEAR"]
     step = 1. if config is None else config["LINEAR_STEP"]
     verbose = False if config is None else config["VERBOSE"]
-    test_verbose = False if config is None else config["TEST_VERBOSE"]
 
     # Get centre of image and cutout halfwidth
     if centre_method == 'standard':
