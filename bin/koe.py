@@ -21,7 +21,6 @@ args = parser.parse_args()
 
 # Load in our configuration file.
 config = tbridge.load_config_file_koe(args.config)
-
 if config["VERBOSE"]:
     print("KOE - Running with TBRIDGE")
 
