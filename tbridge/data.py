@@ -12,8 +12,9 @@ from astropy.io import fits
 from astropy.wcs import wcs
 from astropy.table import Table
 from astropy.nddata import Cutout2D, NoOverlapError
+from astropy.stats import sigma_clipped_stats
 
-from numpy import sqrt, str, save, load, ceil, zeros, isnan, ceil, sort
+from numpy import sqrt, str, save, load, ceil, zeros, isnan, floor, ceil, sort
 from numpy.random import choice, randint
 
 
@@ -403,7 +404,7 @@ def load_array(filename):
         return None
 
 
-def get_backgrounds(config_values, n=50, return_psfs=True, return_bg_info=True):
+def get_backgrounds(config_values, n=50, size=None, threshold=1e-4, return_psfs=True, return_bg_info=True):
     """ Retrieve a random set of backgrounds from the input image directory.
     Args:
         config_values: User provided configuration file.
@@ -424,23 +425,37 @@ def get_backgrounds(config_values, n=50, return_psfs=True, return_bg_info=True):
         bg_infotable = {"IMAGES": [], "RAS": [], "DECS": [], "XS": [], "YS": []}
 
         for i in range(0, n):
-            model_halfwidth = ceil(size / 2)
+            fail_count = 0
+            while fail_count < 10:
+                model_halfwidth = ceil(size / 2)
 
-            image_filename = choice(image_filenames)
+                image_filename = choice(image_filenames)
 
-            image = tbridge.select_image(image_filename)
-            image_wcs = tbridge.get_wcs(image_filename)
+                image = tbridge.select_image(image_filename)
+                image_wcs = tbridge.get_wcs(image_filename)
 
-            if image is None:
+                c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
+                c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
+                x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
+                y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
+
+                image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
+                ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
+
+                if threshold is not None:
+                    bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
+                    if bg_std < threshold:
+                        fail_count += 1
+                        continue
+                    else:
+                        break
+
+                if image is None:
+                    fail_count += 1
+                    continue
+
+            if fail_count >= 10:
                 continue
-
-            c_x = randint(model_halfwidth + 1, image.shape[0] - model_halfwidth - 1)
-            c_y = randint(model_halfwidth + 1, image.shape[1] - model_halfwidth - 1)
-            x_min, x_max = int(c_x - model_halfwidth), int(c_x + model_halfwidth)
-            y_min, y_max = int(c_y - model_halfwidth), int(c_y + model_halfwidth)
-
-            image_cutout = image[x_min: x_max - 1, y_min: y_max - 1]
-            ra, dec = image_wcs.wcs_pix2world(c_x, c_y, 0)
 
             if return_psfs:
                 psf = tbridge.get_closest_psf(psfs, ra, dec).data
@@ -529,3 +544,11 @@ def cutout_stitch(cutouts, masked_cutouts=None, output_filename=None):
         return canvas
     else:
         return canvas, masked_canvas
+
+
+def central_cutout(arr, width=251):
+    centre = [int(floor(arr.shape[0] / 2)), int(floor(arr.shape[1] / 2))]
+    half_width = int(floor(width / 2))
+
+    return arr[centre[0] - half_width: centre[0] + half_width + 1,
+               centre[1] - half_width: centre[1] + half_width + 1]
