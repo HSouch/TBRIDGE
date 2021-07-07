@@ -236,7 +236,7 @@ def get_background(config, threshold=1e-4):
 
             # Check if the background std is less than a given threshold
             if threshold is not None:
-                bg_mean, bg_median, bg_std = sigma_clipped_stats(image_cutout, sigma=3.)
+                bg_mean, bg_median, bg_std = tbridge.estimate_background_sigclip(image_cutout)
                 if bg_std < threshold:
                     continue
                 else:
