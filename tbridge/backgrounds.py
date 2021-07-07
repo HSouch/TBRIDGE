@@ -14,7 +14,7 @@ from photutils.aperture import CircularAnnulus, EllipticalAnnulus
 from photutils import Background2D, MedianBackground, BkgZoomInterpolator, make_source_mask
 
 
-def background_2D(img, box_size, mask, interp=None, filter_size=1,
+def background_2D(img, mask, box_size, interp=None, filter_size=1,
                   exclude_percentile=90):
     ''' Run photutils background with SigmaClip and MedianBackground'''
     if interp is None:
