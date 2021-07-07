@@ -7,7 +7,7 @@ with open("README.md", "r") as readme:
 
 setuptools.setup(
     name="tbridge",
-    version="1.4.9",
+    version="1.5.0",
     license="BSD 3-clause",
     scripts=['bin/koe.py', 'bin/TBRIDGE.py'],
     author="Harrison Souchereau",
