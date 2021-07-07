@@ -548,7 +548,4 @@ def cutout_stitch(cutouts, masked_cutouts=None, output_filename=None):
 
 def central_cutout(arr, width=251):
     centre = [int(floor(arr.shape[0] / 2)), int(floor(arr.shape[1] / 2))]
-    half_width = int(floor(width / 2))
-
-    return arr[centre[0] - half_width: centre[0] + half_width + 1,
-               centre[1] - half_width: centre[1] + half_width + 1]
+    return Cutout2D(arr, centre, size=width).data
