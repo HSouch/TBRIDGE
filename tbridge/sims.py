@@ -91,7 +91,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
 
     # Prepare containers for simulations
     job_list = []
-    full_profile_list, bg_infolist, cutout_infolist = [[] for i in range(profiles_per_row)], [], []
+    full_profile_list, bg_infolist, cutout_infolist, bg_2D_profiles = [[] for i in range(profiles_per_row)], [], [], []
     masked_cutouts, unmasked_cutouts = [], []
     param_results = Table(data=None, names=["MAG", "R50", "I_R50", "N", "ELLIP", "PA"])
 
@@ -125,6 +125,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
 
             masked_cutouts.append(result["MASKED_CUTOUT"])
             unmasked_cutouts.append(result["UNMASKED_CUTOUT"])
+            bg_2D_profiles.append(result["BGSUB_PROFILE"])
 
         except Exception as error:
             print(error.args, i)
@@ -135,14 +136,19 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
         bg_info[0].append(bg_infolist[i]["BG_MEAN"])
         bg_info[1].append(bg_infolist[i]["BG_MEDIAN"])
         bg_info[2].append(bg_infolist[i]["BG_STD"])
+
     for i in range(0, len(cutout_infolist)):
         cutout_info[0].append(cutout_infolist[i]["BG_MEAN"])
         cutout_info[1].append(cutout_infolist[i]["BG_MEDIAN"])
         cutout_info[2].append(cutout_infolist[i]["BG_STD"])
 
-
     # Subtract the median values from the bgadded profiles
-    bg_sub_profiles = tbridge.subtract_backgrounds(full_profile_list[2], bg_info[1])
+    if config_values["BG_PARAMS"] == "2D":
+        print("Using 2D profiles")
+        bg_sub_profiles = bg_2D_profiles
+    else:
+        bg_sub_profiles = tbridge.subtract_backgrounds(full_profile_list[2], bg_info[1])
+
     full_profile_list.append(bg_sub_profiles)
 
     if verbose:
@@ -199,16 +205,30 @@ def _process_model(sersic_model, config, model_params, provided_bgs=None):
 
     else:
         convolved_model = tbridge.convolve_models(sersic_model)
-
         bg_added_model = tbridge.add_to_provided_backgrounds(convolved_model, provided_bgs)
+
+    # Estimate the background using the sigclip method before we do anything to it with 2D Background subtraction
+    bg_mean, bg_median, bg_std = tbridge.estimate_background_sigclip(bg_added_model)
+
+    # If we're doing 2D background subtraction we'll need to estimate and then subtract the background BEFORE
+    # profile extraction.
+    bgsub_model = None
+    if config["BG_PARAMS"] == "2D":
+        sm = tbridge.SourceMask(bg_added_model)
+        mask = sm.multiple(filter_fwhm=[1, 3, 5], tophat_size=[4, 2, 1])
+        bg = tbridge.background_2D(bg_added_model, mask,
+                                   box_size=config["BOX_SIZE"], filter_size=config["FILTER_SIZE"])
+        bgsub_model = bg_added_model - bg.background
+
+    # Now we will make the cutout smaller for extraction purposes
+    convolved_model = tbridge.central_cutout(convolved_model, width=config["EXTRACTION_SIZE"])
+    bg_added_model = tbridge.central_cutout(bg_added_model, width=config["EXTRACTION_SIZE"])
+    bgsub_model = tbridge.central_cutout(bgsub_model, width=config["EXTRACTION_SIZE"])
 
     # Generate the noise model and mask the background-added model
     noisy_model = tbridge.add_to_noise(convolved_model)
     masked_model, mask_data = tbridge.mask_cutout(bg_added_model, config=config)
-
     model_row = [convolved_model, noisy_model, masked_model]
-
-    bg_mean, bg_median, bg_std = tbridge.estimate_background(bg_added_model, config, model_params=model_params)
 
     # Then extract everything we can
     profile_extractions = []
@@ -220,8 +240,18 @@ def _process_model(sersic_model, config, model_params, provided_bgs=None):
             print(error.args)
             continue
 
+    # We'll extract the BG-subtracted profile is necessary
+    bgsub_profile = None
+    if config["BG_PARAMS"] == "2D":
+        try:
+            bgsub_profile = tbridge.isophote_fitting(tbridge.mask_cutout(bgsub_model, config=config)[0],
+                                                     config=config).to_table()
+        except Exception as error:
+            print(error.args)
+
     # put the results into a dictionary format and return everything
     return {"PROFILES": profile_extractions,
+            "BGSUB_PROFILE": bgsub_profile,
             "MASK_DATA": mask_data,
             "BG_DATA": bg_data,
             "CUTOUT_DATA": {"BG_MEAN": bg_mean, "BG_MEDIAN": bg_median, "BG_STD": bg_std},
