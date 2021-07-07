@@ -50,13 +50,15 @@ def load_config_file(filename, verbose_test=False):
             config_values[n] = False
             continue
     config_values["SIZE"] = int(config_values["SIZE"])
+    config_values["EXTRACTION_SIZE"] = int(config_values["EXTRACTION_SIZE"])
     config_values["CORES"] = int(config_values["CORES"])
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
     config_values["N_MODELS"] = int(config_values["N_MODELS"])
     config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
     config_values["ALARM_TIME"] = int(config_values["ALARM_TIME"])
     config_values["CUTOUT_FRACTION"] = float(config_values["CUTOUT_FRACTION"])
-
+    config_values["BOX_SIZE"] = int(config_values["BOX_SIZE"])
+    config_values["FILTER_SIZE"] = int(config_values["FILTER_SIZE"])
 
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
@@ -105,6 +107,7 @@ def default_config_params():
         "ELLIP_KEY": "ELLIPS",
 
         "SIZE": 100,
+        "EXTRACTION_SIZE": 100,
         "BAND": "i",
         "CORES": 4,
         "ARC_CONV": 0.2,
@@ -124,6 +127,8 @@ def default_config_params():
         "ALARM_TIME": 60,
         "MASK_PARAMS": [1, 2.0, 11],
         "BG_PARAMS": "ellipse",
+        "BOX_SIZE": 40,
+        "FILTER_SIZE": 3
     }
 
     return default_params
@@ -183,7 +188,9 @@ def dump_default_config_file(directory=""):
              "# Parameters for Masking and background estimation ... NSIGMA, GAUSS_WIDTH, NPIX",
              "# Options for BG estimation: ellipse, circle, sigmaclip",
              "MASK_PARAMS         = 1, 2.0, 11",
-             "BG_PARAMS           = ellipse"
+             "BG_PARAMS           = ellipse",
+             "BOX_SIZE            = 41",
+             "FILTER_SIZE         = 3"
              ]
 
     with open(directory + "config.tbridge", "w+") as f:
@@ -236,9 +243,9 @@ def dump_default_config_file_koe(directory=""):
              "ALARM_TIME          = 60",
              "",
              "# Parameters for Masking and background estimation ... NSIGMA, GAUSS_WIDTH, NPIX",
-             "# Options for BG estimation: ellipse, circle, sigmaclip",
+             "# Options for BG estimation: ellipse, circle, sigmaclip, 2D",
              "MASK_PARAMS         = 1, 2.0, 11",
-             "BG_PARAMS           = sigmaclip"
+             "BG_PARAMS           = sigmaclip",
              ]
 
     with open(directory + "koe_config.tbridge", "w+") as f:
