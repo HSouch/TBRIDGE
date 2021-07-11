@@ -1,26 +1,37 @@
-import setuptools
 
+from distutils.core import setup
+from setuptools import find_packages
+import tbridge
 
-with open("README.md", "r") as readme:
-    long_description = readme.read()
-
-
-setuptools.setup(
-    name="tbridge",
-    version="1.5.0",
-    license="BSD 3-clause",
-    scripts=['bin/koe.py', 'bin/TBRIDGE.py'],
+setup(
+    name = 'tbridge',
+    packages = find_packages(),
+    version = tbridge.__version__,
+    license='BSD-3-Clause',
+    description = 'Simulation suite for efficiency testing of galaxy surface brightness profiles.',
     author="Harrison Souchereau",
-    author_email="harrison.souchereau@yale.edu",
-    description="Testing BRIghtness Deviations in Galaxy profile Extractions",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    url="https://github.com/hsouch/tbridge",
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: BSD License",
-        "Operating System :: OS Independent",
+    author_email='harrison.souchereau@yale.edu',
+    url='https://github.com/HSouch/TBRIDGE',
+    keywords='galaxies surface brightness profiles',
+    scripts=[
+        "bin/koe.py",
+        "bin/TBRIDGE.py"
     ],
-    python_requires='>=3.6',
+    install_requires=[
+        'scikit-image',
+        'numpy',
+        'photutils',
+        'astropy',
+        'pebble',
+        'tqdm'
+    ],
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Developers',
+        'Topic :: Software Development :: Build Tools',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+
+    ],
 )
