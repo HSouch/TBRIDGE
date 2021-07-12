@@ -279,8 +279,12 @@ def save_profiles(profile_list, bin_info, out_dir, keys, bg_info=None, cutout_in
         out_filename = filename_prefix + keys[i] + ".fits"
         out_hdulist = fits.HDUList()
         for prof in profiles:
-            out_hdulist.append(fits.BinTableHDU(Table([prof[col] for col in valid_colnames],
-                                                      names=valid_colnames)))
+            try:
+                out_hdulist.append(fits.BinTableHDU(Table([prof[col] for col in valid_colnames],
+                                                          names=valid_colnames)))
+            except Exception as e:
+                print(e)
+                continue
 
         out_hdulist.writeto(out_dir + subdirs[i] + out_filename, overwrite=True)
 
