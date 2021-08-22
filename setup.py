@@ -4,9 +4,9 @@ from setuptools import find_packages
 import tbridge
 
 setup(
-    name = 'tbridge',
-    packages = find_packages(),
-    version = tbridge.__version__,
+    name='tbridge',
+    packages=find_packages(),
+    version=tbridge.__version__,
     license='BSD-3-Clause',
     description = 'Simulation suite for efficiency testing of galaxy surface brightness profiles.',
     author="Harrison Souchereau",
