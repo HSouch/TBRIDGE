@@ -173,17 +173,6 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
         if len(image_indices) == 1:
             image_indices.append(0)
 
-        masked_cutouts, unmasked_cutouts = array(masked_cutouts)[image_indices], array(unmasked_cutouts)[image_indices]
-
-        if config_values["SAVE_CUTOUTS"].lower() == 'stitch':
-            tbridge.cutout_stitch(unmasked_cutouts, masked_cutouts=masked_cutouts,
-                                  output_filename=image_output_filename + "stitch.fits")
-        if config_values["SAVE_CUTOUTS"].lower() == 'mosaic':
-            plotter.view_cutouts(masked_cutouts, output=image_output_filename + ".png", log_scale=False)
-        if config_values["SAVE_CUTOUTS"].lower() == 'fits':
-            output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params) + ".png"
-            tbridge.save_cutouts(masked_cutouts, output_filename=output_filename)
-
     if verbose:
         print("Finished", b.bin_params, "-- Time Taken:", round((time.time() - t_start) / 60, 2), "minutes.")
         print()
