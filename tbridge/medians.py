@@ -109,74 +109,6 @@ def index_format(in_dir, x_bins, y_bins, out_dir="dir_copy/", indices=(1, 2), me
                 os.rename(in_dir + subdir + f, in_dir + subdir + new_filename)
 
 
-def __median_processing(full_filename, config, out_dir="", subdir="", iterations=101,
-                        x_key="REDSHIFT_BINS", y_key="MASS_BINS", x_index=1, y_index=0, index_format=True):
-    """
-    Run through the median processing on a given filename.
-    :param full_filename:
-    :param out_dir:
-    :param subdir:
-    :param index_format: Save files in an index format (x_y_suffix.fits)
-    :return:
-    """
-
-    params = tbridge.params_from_filename(full_filename)
-
-    bins_x, bins_y = config[x_key], config[y_key]
-
-    x = tbridge.bin_index(params[x_index], bins_x)
-    y = tbridge.bin_index(params[y_index], bins_y)
-
-    # filename = full_filename.split("/")[len(full_filename.split("/")) - 1]
-
-    # filename_suffix = full_filename.split("_")[len(full_filename.split("_")) - 1].split(".")[0] + "_median.fits"
-    # filename = str(x) + "_" + str(y) + "_" + filename_suffix
-
-    filename = full_filename.split("/")[-1]
-
-    prof_list = tbridge.tables_from_file(full_filename)
-    bin_max_value = bin_max(prof_list)
-    prof_list = as_interpolations(prof_list)
-
-    med_data = tbridge.get_median(prof_list, bin_max_value)
-    bootstrap_data = tbridge.bootstrap_uncertainty(prof_list, bin_max_value, iterations=iterations)
-    tbridge.save_medians(med_data, bootstrap_data, output_filename=out_dir + subdir + filename)
-
-
-def median_pipeline(in_dir, config=tbridge.default_config_params(), multiprocess=False, cores=1, iterations=101):
-
-    out_dir = in_dir[:len(in_dir) - 1] + "_medians/"
-
-    def generate_file_structure(out_dir, subdirs):
-        """ Generate a filestructure with N subdirs within the top directory out_dir"""
-        if not os.path.isdir(out_dir):
-            os.mkdir(out_dir)
-
-        for subdir in subdirs:
-            if not os.path.isdir(out_dir + subdir + "/"):
-                os.mkdir(out_dir + subdir + "/")
-
-    subdirs = os.listdir(in_dir)
-    generate_file_structure(out_dir, subdirs)
-
-    for subdir in subdirs[:]:
-        if os.path.isfile(in_dir + subdir):
-            continue
-        subdir = subdir + "/"
-
-        bins = [str(b) for b in Path(in_dir + subdir).rglob('*.fits')]
-
-        print(subdir, " | Bins:", len(bins))
-
-        if multiprocess:
-            pool = mp.Pool(processes=cores)
-            results = [pool.apply_async(__median_processing, (b, config, out_dir, subdir, iterations)) for b in bins]
-            [res.get() for res in results]
-        else:
-            for b in bins:
-                __median_processing(b, config, out_dir, subdir, iterations)
-
-
 def load_median_info(filename):
     """
     Load a complete set of median info (TBriDGE output) in as a dict object.
@@ -327,3 +259,5 @@ def median_pipeline(full_filename, output_filename=None, step=0.5):
         out_hdulist.writeto(output_filename, overwrite=True)
 
         return b_dict.update({"MEDIAN": med_table, "SMA": median_sma})
+
+
