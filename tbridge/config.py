@@ -246,6 +246,8 @@ def dump_default_config_file_koe(directory=""):
              "# Options for BG estimation: ellipse, circle, sigmaclip, 2D",
              "MASK_PARAMS         = 1, 2.0, 11",
              "BG_PARAMS           = sigmaclip",
+             "BOX_SIZE            = 41",
+             "FILTER_SIZE         = 6"
              ]
 
     with open(directory + "koe_config.tbridge", "w+") as f:
@@ -296,6 +298,8 @@ def load_config_file_koe(filename):
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
     config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
     config_values["ALARM_TIME"] = int(config_values["ALARM_TIME"])
+    config_values["BOX_SIZE"] = int(config_values["BOX_SIZE"])
+    config_values["FILTER_SIZE"] = int(config_values["FILTER_SIZE"])
 
     value_string = config_values["MASK_PARAMS"].split(",")
     config_values["MASK_PARAMS"] = [float(value_string[0]), float(value_string[1]), int(value_string[2])]

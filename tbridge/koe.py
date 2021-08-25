@@ -26,10 +26,19 @@ def process_object(image, image_wcs, object_info, config):
     # Generate the cutout
     loc = np.asarray(image_wcs.wcs_world2pix(object_info[config["RA"]],
                                              object_info[config["DEC"]], 0), dtype=int)
-    cutout = Cutout2D(image, (loc[0], loc[1]), size=config["SIZE"], wcs=image_wcs)
+    cutout = Cutout2D(image, (loc[0], loc[1]), size=config["SIZE"], wcs=image_wcs).data
 
+    #
+    if config["BG_PARAMS"] == '2D':
+        sm = tbridge.SourceMask(cutout)
+        source_mask = sm.multiple(filter_fwhm=[1, 3, 5], tophat_size=[4, 2, 1])
+        bg = tbridge.background_2D(cutout, source_mask,
+                                   box_size=config["BOX_SIZE"], filter_size=config["FILTER_SIZE"])
+        params["2D_BG_MED"] = bg.background_median
+        params["2D_BG_RMS_MED"] = bg.background_rms_median
+        cutout = cutout - bg.background
     # Mask the cutout
-    masked_cutout, mask_params = tbridge.mask_cutout(cutout.data, config=config)
+    masked_cutout, mask_params = tbridge.mask_cutout(cutout, config=config)
 
     params.update(mask_params)
 
