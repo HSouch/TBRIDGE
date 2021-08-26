@@ -54,6 +54,7 @@ def load_config_file(filename, verbose_test=False):
     config_values["CORES"] = int(config_values["CORES"])
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
     config_values["N_MODELS"] = int(config_values["N_MODELS"])
+    config_values["N_BGS"] = int(config_values["N_BGS"])
     config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
     config_values["ALARM_TIME"] = int(config_values["ALARM_TIME"])
     config_values["CUTOUT_FRACTION"] = float(config_values["CUTOUT_FRACTION"])
@@ -113,6 +114,7 @@ def default_config_params():
         "ARC_CONV": 0.2,
         "N_MODELS": 100,
         "SAME_BGS": True,
+        "N_BGS": 50,
 
         "MASS_BINS": arange(10., 12., 0.4),
         "REDSHIFT_BINS": arange(0.1, 0.9, 0.2),
@@ -165,13 +167,14 @@ def dump_default_config_file(directory=""):
              "N_KEY               = SERSIC_NS",
              "ELLIP_KEY           = ELLIPS",
              "",
-             "# Cutout size, band, num-cores, arcsecs per pix, N models to gen",
+             "# Cutout size, band, num-cores, arcsecs per pix, N models to gen, number of bgs to gen",
              "SIZE                = 100",
              "BAND                = i",
              "CORES               = 4",
              "ARC_CONV            = 0.2",
              "N_MODELS            = 100",
              "SAME_BGS            = True",
+             "N_BGS               = 50",
              "",
              "# Bins to run through. (LOWER BOUND, UPPER BOUND, BIN WIDTH)",
              "# Note that the bins are defined by the LOWER BOUND to LOWER BOUND + BIN WIDTH",

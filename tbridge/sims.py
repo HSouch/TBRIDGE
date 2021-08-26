@@ -9,7 +9,7 @@ from pebble import ProcessPool
 from concurrent.futures import TimeoutError
 
 from numpy import round, array
-from numpy.random import choice
+from numpy.random import choice, randint, seed
 
 
 def pipeline(config, max_bins=None, mag_table=None,
@@ -46,7 +46,10 @@ def pipeline(config, max_bins=None, mag_table=None,
         print(max_bins, "bins to process.")
 
     if config["SAME_BGS"] and provided_bgs is None:
-        provided_bgs, provided_psfs = tbridge.get_backgrounds(config, n=50)
+        provided_bgs, provided_psfs = tbridge.get_backgrounds(config, n=int(config["N_BGS"]),
+                                                              return_psfs=True, return_bg_info=False)
+        if verbose:
+            print(len(provided_bgs), "obtained with associated PSFs.")
 
     for b in binned_objects[:max_bins]:
 
@@ -58,12 +61,13 @@ def pipeline(config, max_bins=None, mag_table=None,
             separate_mags = None
 
         _process_bin(b, config, separate_mags=separate_mags,
-                     provided_bgs=provided_bgs, progress_bar=progress_bar, multiprocess=True)
+                     provided_bgs=provided_bgs, provided_psfs=provided_psfs,
+                     progress_bar=progress_bar, multiprocess=True)
 
     tbridge.config_to_file(config, filename=config["OUT_DIR"] + "tbridge_config.txt")
 
 
-def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
+def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provided_psfs=None,
                         progress_bar=False, multiprocess=False, profiles_per_row=3):
     """
         Process a single bin of galaxies. (Tuned for pipeline usage but can be used on an individual basis.
@@ -103,7 +107,8 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
     with ProcessPool(max_workers=config_values["CORES"]) as pool:
         for i in range(len(models)):
             job_list.append(pool.schedule(_process_model,
-                                          args=(models[i], config_values, model_parameters[i], provided_bgs),
+                                          args=(models[i], config_values, model_parameters[i],
+                                                provided_bgs, provided_psfs),
                                           timeout=config_values["ALARM_TIME"]))
     # Collect the results
     for i in range(len(job_list)):
@@ -163,22 +168,12 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None,
                           bg_info=bg_info, cutout_info=cutout_info,
                           structural_params=param_results)
 
-    if config_values["SAVE_CUTOUTS"].lower() != 'none':
-        # Save images if demanded by the user
-        image_output_filename = config_values["OUT_DIR"] + tbridge.generate_file_prefix(b.bin_params)
-        image_indices = choice(len(unmasked_cutouts),
-                         size=int(len(unmasked_cutouts) * config_values["CUTOUT_FRACTION"]),
-                         replace=False)
-        # This is just to avoid an issue if the indices list is too small
-        if len(image_indices) == 1:
-            image_indices.append(0)
-
     if verbose:
         print("Finished", b.bin_params, "-- Time Taken:", round((time.time() - t_start) / 60, 2), "minutes.")
         print()
 
 
-def _process_model(sersic_model, config, model_params, provided_bgs=None):
+def _process_model(sersic_model, config, model_params, provided_bgs=None, provided_psfs=None):
     """
     Run processing for a single model.
 
@@ -193,11 +188,17 @@ def _process_model(sersic_model, config, model_params, provided_bgs=None):
         bg_added_model = convolved_model + background
 
     else:
-        convolved_model = tbridge.convolve_models(sersic_model)
-        bg_added_model = tbridge.add_to_provided_backgrounds(convolved_model, provided_bgs)
+        # We will now randomly select a background and psf, and use that as our background
+        seed()
+        bg_index = randint(0, len(provided_bgs),)
+        bg_mean, bg_median, bg_std = tbridge.estimate_background_sigclip(provided_bgs[bg_index])
+
+        convolved_model = tbridge.convolve_models(sersic_model, psf=provided_psfs[bg_index])
+        bg_added_model = convolved_model + provided_bgs[bg_index]
 
     # Estimate the background using the sigclip method before we do anything to it with 2D Background subtraction
     bg_mean, bg_median, bg_std = tbridge.estimate_background_sigclip(bg_added_model)
+    bg_data = {"BG_MEAN": bg_mean, "BG_MEDIAN": bg_median, "BG_STD": bg_std}
 
     # If we're doing 2D background subtraction we'll need to estimate and then subtract the background BEFORE
     # profile extraction.
