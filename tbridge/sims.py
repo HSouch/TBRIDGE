@@ -1,6 +1,7 @@
 import tbridge
 import tbridge.plotting as plotter
 from astropy.table import Table
+from astropy.io import fits
 
 import time
 import traceback
@@ -89,7 +90,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
     if separate_mags is not None:
         mags = tbridge.pdf_resample(separate_mags, resample_size=len(r50s))[0]
 
-    # Simulate the model rows, using multiprocessing to speed things up######################
+    # Simulate the model rows, using multiprocessing to speed things up#
     if verbose:
         print("Processing", config_values["N_MODELS"], "models for: ", b.bin_params)
 
@@ -128,12 +129,15 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
             bg_infolist.append(result["BG_DATA"])
             cutout_infolist.append(result["CUTOUT_DATA"])
 
-            masked_cutouts.append(result["MASKED_CUTOUT"])
-            unmasked_cutouts.append(result["UNMASKED_CUTOUT"])
+            # masked_cutouts.append(result["MASKED_CUTOUT"])
+            # unmasked_cutouts.append(result["UNMASKED_CUTOUT"])
             bg_2D_profiles.append(result["BGSUB_PROFILE"])
 
         except Exception as error:
-            print(error.args, i)
+            if bool(config_values["TEST_VERBOSE"]):
+                print(error.args, i, traceback.print_exc())
+            else:
+                print(error.args, i)
 
     bg_info, cutout_info = [[], [], []], [[], [], []]
 
@@ -182,19 +186,28 @@ def _process_model(sersic_model, config, model_params, provided_bgs=None, provid
     :param provided_bgs: OPTIONAL --- set of provided backgrounds
     """
     # First make the input models
+
     if provided_bgs is None:
         background, psf, bg_data = tbridge.get_background(config)
         convolved_model = tbridge.convolve_models(sersic_model, psf=psf)
         bg_added_model = convolved_model + background
 
     else:
-        # We will now randomly select a background and psf, and use that as our background
-        seed()
-        bg_index = randint(0, len(provided_bgs),)
-        bg_mean, bg_median, bg_std = tbridge.estimate_background_sigclip(provided_bgs[bg_index])
+        if config["PROVIDED_BG_TYPE"] == "Cutouts":
+            # We will now randomly select a background and psf, and use that as our background
+            seed()
+            bg_index = randint(0, len(provided_bgs),)
+            convolved_model = tbridge.convolve_models(sersic_model, psf=provided_psfs[bg_index])
+            bg_added_model = convolved_model + provided_bgs[bg_index]
 
-        convolved_model = tbridge.convolve_models(sersic_model, psf=provided_psfs[bg_index])
-        bg_added_model = convolved_model + provided_bgs[bg_index]
+        else:
+            seed()
+            cutout, row_data = tbridge.cutout_from_table(provided_bgs)
+
+            with fits.open(config["PSF_FILENAME"]) as psfs:
+                psf = tbridge.get_closest_psf(psfs, row_data["RA"], row_data["DEC"])
+            convolved_model = tbridge.convolve_models(sersic_model, config_values=config, psf=psf)
+            bg_added_model = convolved_model + cutout
 
     # Estimate the background using the sigclip method before we do anything to it with 2D Background subtraction
     bg_mean, bg_median, bg_std = tbridge.estimate_background_sigclip(bg_added_model)
@@ -245,6 +258,6 @@ def _process_model(sersic_model, config, model_params, provided_bgs=None, provid
             "MASK_DATA": mask_data,
             "BG_DATA": bg_data,
             "CUTOUT_DATA": {"BG_MEAN": bg_mean, "BG_MEDIAN": bg_median, "BG_STD": bg_std},
-            "UNMASKED_CUTOUT": bg_added_model,
-            "MASKED_CUTOUT": masked_model,
+            # "UNMASKED_CUTOUT": bg_added_model,
+            # "MASKED_CUTOUT": masked_model,
             "INFO": model_params}
