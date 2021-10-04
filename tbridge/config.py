@@ -61,6 +61,8 @@ def load_config_file(filename, verbose_test=False):
     config_values["BOX_SIZE"] = int(config_values["BOX_SIZE"])
     config_values["FILTER_SIZE"] = int(config_values["FILTER_SIZE"])
 
+    config_values["PROVIDED_BG_TYPE"] = "None"
+
     for n in ("MASS_BINS", "REDSHIFT_BINS", "SFPROB_BINS"):
         """ Turn all bins in numpy aranges (just to simplify the process). Will also add a x_step parameter"""
         value_string = config_values[n].split(",")
@@ -169,6 +171,7 @@ def dump_default_config_file(directory=""):
              "",
              "# Cutout size, band, num-cores, arcsecs per pix, N models to gen, number of bgs to gen",
              "SIZE                = 100",
+             "EXTRACTION_SIZE     = 100",
              "BAND                = i",
              "CORES               = 4",
              "ARC_CONV            = 0.2",
