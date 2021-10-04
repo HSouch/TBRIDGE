@@ -14,8 +14,8 @@ from astropy.table import Table
 from astropy.nddata import Cutout2D, NoOverlapError
 from astropy.stats import sigma_clipped_stats
 
-from numpy import sqrt, str, save, load, ceil, zeros, isnan, floor, ceil, sort
-from numpy.random import choice, randint
+from numpy import sqrt, str, save, load, ceil, zeros, isnan, floor, ceil, sort, min, mean
+from numpy.random import choice, randint, uniform
 
 
 def get_closest_psf(psfs, obj_ra, obj_dec):
@@ -408,7 +408,7 @@ def load_array(filename):
         return None
 
 
-def get_backgrounds(config_values, n=50, size=None, threshold=1e-4, return_psfs=True, return_bg_info=True):
+def get_backgrounds(config, n=50, size=None, threshold=1e-4, return_psfs=True, return_bg_info=True):
     """ Retrieve a random set of backgrounds from the input image directory.
     Args:
         config_values: User provided configuration file.
@@ -418,8 +418,8 @@ def get_backgrounds(config_values, n=50, size=None, threshold=1e-4, return_psfs=
     :return:
     """
 
-    image_dir, psf_filename = config_values["IMAGE_DIRECTORY"], config_values["PSF_FILENAME"]
-    size = config_values["SIZE"]
+    image_dir, psf_filename = config["IMAGE_DIRECTORY"], config["PSF_FILENAME"]
+    size = config["SIZE"]
 
     with fits.open(psf_filename) as psfs:
         image_filenames = tbridge.get_image_filenames(image_dir)
@@ -551,5 +551,105 @@ def cutout_stitch(cutouts, masked_cutouts=None, output_filename=None):
 
 
 def central_cutout(arr, width=251):
+    """
+    Simple method to return a central cutout of a given width from an input array arr.
+    """
     centre = [int(floor(arr.shape[0] / 2)), int(floor(arr.shape[1] / 2))]
     return Cutout2D(arr, centre, size=width).data
+
+
+def get_background_table(directory, num_bgs=50, size=91, objects=None, min_dist=0,
+                         attempts_per_img=5, output_filename=None, ra_key="RA", dec_key="DEC"):
+    """ Generate a table where each row allows the user to reconstruct an image..
+
+    Args:
+        directory: Top level directory. This can have nested subdirectories.
+        num_bgs: The number of backgrounds to denerate. Default is 50.
+        size: Width of the cutout to generate.
+        objects: Input table of objects to check for nearby objects.
+        min_dist: The minimum allowable distance for an object, defined in the objects parameter,
+            to be in order for a cutout to be added to the output table.
+        attempts_per_img:
+            The number
+
+        output_filename: Optional output to save as HDUList
+
+    Returns:
+        Returns either the stitch, or a tuple of the stich and the mask stitch if masked_cutouts is submitted..
+    """
+
+    rows = []
+    image_filenames = tbridge.get_image_filenames(directory)
+
+    attempts, max_attempts = 0, num_bgs * 100
+
+    while len(rows) < num_bgs:
+        if attempts >= max_attempts:
+            break
+
+        random_img = choice(image_filenames)
+
+        image = tbridge.select_image(random_img)
+        image_wcs = tbridge.get_wcs(random_img)
+
+        for i in range(attempts_per_img):
+            x = int(uniform(size + 1, image.shape[0] - size - 1))
+            y = int(uniform(size + 1, image.shape[1] - size - 1))
+
+            cutout = Cutout2D(image, (x, y), size=size, wcs=image_wcs)
+            cutout_bbox = cutout.bbox_original[::-1]
+            # print(cutout_bbox, [cutout_bbox[0][0], cutout_bbox[0][1], 0])
+
+            ra, dec = image_wcs.wcs_pix2world(cutout_bbox[0], cutout_bbox[1], 0)
+            ra, dec = sort(ra), sort(dec)
+
+            ra_cent, dec_cent = image_wcs.wcs_pix2world(x, y, 0)
+            # If we don't supply objects, just return the location. Otherwise, check for nearby objects
+            if objects is None:
+                rows.append([random_img, x, y, size, "N/A", "N/A", ra_cent, dec_cent])
+                continue
+            else:
+                this_catalog = objects
+                this_catalog = this_catalog[this_catalog[ra_key] > ra[0]]
+                this_catalog = this_catalog[this_catalog[ra_key] < ra[1]]
+
+                this_catalog = this_catalog[this_catalog[dec_key] > dec[0]]
+                this_catalog = this_catalog[this_catalog[dec_key] < dec[1]]
+
+                physical_position = image_wcs.wcs_world2pix(this_catalog[ra_key], this_catalog[dec_key], 0)
+                phys_x, phys_y = physical_position[0], physical_position[1]
+
+                try:
+                    dists = sqrt((phys_x - x) ** 2 + (phys_y - y) ** 2)
+
+                    if min(dists) < min_dist:
+                        continue
+                    else:
+                        rows.append([random_img, x, y, size, min(dists), len(dists), ra_cent, dec_cent])
+                except ValueError:
+                    # Sometimes there are issues with the min function on the dists. Should probably look into this
+                    # at some point.
+                    continue
+
+            # print(len(this_catalog), x, y, cutout.shape, np.min(dists), len(rows))
+
+        attempts += 1
+
+    t = Table(rows=rows, names=["IMAGE", "X", "Y", "SIZE", "MIN_DIST", "N_IN_CUTOUT", "RA", "DEC"])
+
+    if output_filename is not None:
+        t.write(output_filename)
+
+    return t
+
+
+def cutout_from_table(cutout_table, size=None):
+    index = randint(0, len(cutout_table))
+    row = cutout_table[index]
+
+    size = row["SIZE"] if size is None else size
+    image = tbridge.select_image(row["IMAGE"])
+
+    cutout = Cutout2D(image, (row["X"], row["Y"]), size=size)
+
+    return cutout.data, row
