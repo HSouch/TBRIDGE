@@ -1,5 +1,5 @@
 
-__version__ = "1.5.7"
+__version__ = "1.5.9"
 
 from .backgrounds import *
 from .binning import *
