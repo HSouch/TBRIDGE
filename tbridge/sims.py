@@ -134,7 +134,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
             bg_2D_profiles.append(result["BGSUB_PROFILE"])
 
         except Exception as error:
-            if bool(config_values["TEST_VERBOSE"]):
+            if config_values["TEST_VERBOSE"]:
                 print(error.args, i, traceback.print_exc())
             else:
                 print(error.args, i)
