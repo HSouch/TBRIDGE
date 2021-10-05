@@ -41,10 +41,9 @@ def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omi
     c_x, c_y = int(floor(cutout.shape[0] / 2)), int(floor(cutout.shape[1] / 2))
 
     # Generate background mask and statistics
-    try:
-        bg_mask = make_source_mask(cutout, nsigma=2, npixels=3, dilate_size=7)
-    except TypeError:
-        bg_mask = make_source_mask(cutout, snr=2, npixels=3, dilate_size=7)
+
+    bg_mask = make_source_mask(cutout, nsigma=2, npixels=3, dilate_size=7)
+
 
     bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
@@ -89,11 +88,7 @@ def generate_mask(cutout, nsigma=1., gauss_width=2.0, npixels=5):
     kernel = Gaussian2DKernel(sigma).normalize()
 
     # Find threshold for cutout, and make segmentation map
-    try:
-        threshold = detect_threshold(cutout, nsigma=nsigma)
-    except TypeError:
-        threshold = detect_threshold(cutout, snr=nsigma)
-
+    threshold = detect_threshold(cutout, nsigma=nsigma)
     segments = detect_sources(cutout, threshold, npixels=npixels, filter_kernel=kernel)
 
     # Attempt to de-blend. Return original segments upon failure.

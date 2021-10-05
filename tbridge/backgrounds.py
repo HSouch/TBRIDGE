@@ -108,10 +108,8 @@ def estimate_background(cutout, config, model_params=None):
 
 def estimate_background_sigclip(cutout, nsigma=2, npixels=3, dilate_size=7):
     """ Estimate the background mean, median, and standard deviation of a cutout using sigma-clipped-stats """
-    try:
-        bg_mask = make_source_mask(cutout, nsigma=nsigma, npixels=npixels, dilate_size=dilate_size)
-    except TypeError:
-        bg_mask = make_source_mask(cutout, snr=nsigma, npixels=npixels, dilate_size=dilate_size)
+
+    bg_mask = make_source_mask(cutout, nsigma=nsigma, npixels=npixels, dilate_size=dilate_size)
 
     bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
