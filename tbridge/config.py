@@ -52,6 +52,7 @@ def load_config_file(filename, verbose_test=False):
     config_values["SIZE"] = int(config_values["SIZE"])
     config_values["EXTRACTION_SIZE"] = int(config_values["EXTRACTION_SIZE"])
     config_values["CORES"] = int(config_values["CORES"])
+    config_values["ZEROPOINT"] = int(config_values["ZEROPOINT"])
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
     config_values["N_MODELS"] = int(config_values["N_MODELS"])
     config_values["N_BGS"] = int(config_values["N_BGS"])
@@ -112,6 +113,7 @@ def default_config_params():
         "SIZE": 100,
         "EXTRACTION_SIZE": 100,
         "BAND": "i",
+        "ZEROPOINT": 27,
         "CORES": 4,
         "ARC_CONV": 0.2,
         "N_MODELS": 100,
@@ -173,6 +175,7 @@ def dump_default_config_file(directory=""):
              "SIZE                = 100",
              "EXTRACTION_SIZE     = 100",
              "BAND                = i",
+             "ZEROPOINT           = 27",
              "CORES               = 4",
              "ARC_CONV            = 0.2",
              "N_MODELS            = 100",
@@ -239,6 +242,7 @@ def dump_default_config_file_koe(directory=""):
              "# Cutout size, band, num-cores, arcseconds per pix",
              "SIZE                = 100",
              "BAND                = i",
+             "ZEROPOINT           = 27",
              "CORES               = 4",
              "ARC_CONV            = 0.2",
              "",
@@ -301,6 +305,7 @@ def load_config_file_koe(filename):
             continue
     config_values["SIZE"] = int(config_values["SIZE"])
     config_values["CORES"] = int(config_values["CORES"])
+    config_values["ZEROPOINT"] = int(config_values["ZEROPOINT"])
     config_values["ARC_CONV"] = float(config_values["ARC_CONV"])
     config_values["LINEAR_STEP"] = float(config_values["LINEAR_STEP"])
     config_values["ALARM_TIME"] = int(config_values["ALARM_TIME"])
