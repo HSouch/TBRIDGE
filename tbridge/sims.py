@@ -68,12 +68,12 @@ def pipeline(config, max_bins=None, mag_table=None,
     tbridge.config_to_file(config, filename=config["OUT_DIR"] + "tbridge_config.txt")
 
 
-def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provided_psfs=None,
-                        progress_bar=False, multiprocess=False, profiles_per_row=3):
+def _process_bin(b, config, separate_mags=None, provided_bgs=None, provided_psfs=None,
+                 progress_bar=False, multiprocess=False, profiles_per_row=3):
     """
         Process a single bin of galaxies. (Tuned for pipeline usage but can be used on an individual basis.
         :param b: Bin to obtain full profiles from.
-        :param config_values: Values from properly loaded configuration file.
+        :param config: Values from properly loaded configuration file.
         :param separate_mags: Optional array of magnitudes.
         :param provided_bgs: Array of provided backgrounds
         :param progress_bar: Use a TQDM progress bar (note with multithreading this might get funky).
@@ -82,7 +82,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
         :return:
         """
     t_start = time.time()
-    verbose = config_values["VERBOSE"]
+    verbose = config["VERBOSE"]
 
     # Load in bin information, and prepare all necessary structural parameters.
     keys, columns = b.return_columns()
@@ -92,7 +92,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
 
     # Simulate the model rows, using multiprocessing to speed things up#
     if verbose:
-        print("Processing", config_values["N_MODELS"], "models for: ", b.bin_params)
+        print("Processing", config["N_MODELS"], "models for: ", b.bin_params)
 
     # Prepare containers for simulations
     job_list = []
@@ -102,15 +102,15 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
 
     # Get the original models
     models, model_parameters = tbridge.simulate_sersic_models(mags, r50s, ns, ellips,
-                                                              config_values, n_models=config_values["N_MODELS"])
+                                                              config, n_models=config["N_MODELS"])
 
     # Run multithreaded simulation code
-    with ProcessPool(max_workers=config_values["CORES"]) as pool:
+    with ProcessPool(max_workers=config["CORES"]) as pool:
         for i in range(len(models)):
             job_list.append(pool.schedule(_process_model,
-                                          args=(models[i], config_values, model_parameters[i],
+                                          args=(models[i], config, model_parameters[i],
                                                 provided_bgs, provided_psfs),
-                                          timeout=config_values["ALARM_TIME"]))
+                                          timeout=config["ALARM_TIME"]))
     # Collect the results
     for i in range(len(job_list)):
         try:
@@ -134,7 +134,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
             bg_2D_profiles.append(result["BGSUB_PROFILE"])
 
         except Exception as error:
-            if config_values["TEST_VERBOSE"]:
+            if config["TEST_VERBOSE"]:
                 print(error.args, i, traceback.print_exc())
             else:
                 print(error.args, i)
@@ -152,7 +152,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
         cutout_info[2].append(cutout_infolist[i]["BG_STD"])
 
     # Subtract the median values from the bgadded profiles
-    if config_values["BG_PARAMS"] == "2D":
+    if config["BG_PARAMS"] == "2D":
         print("Using 2D profiles")
         bg_sub_profiles = bg_2D_profiles
     else:
@@ -167,7 +167,7 @@ def _process_bin(b, config_values, separate_mags=None, provided_bgs=None, provid
     # Save the profiles to the required places
     tbridge.save_profiles(full_profile_list,
                           bin_info=b.bin_params,
-                          out_dir=config_values["OUT_DIR"],
+                          out_dir=config["OUT_DIR"],
                           keys=["bare", "noisy", "bgadded", "bgsub"],
                           bg_info=bg_info, cutout_info=cutout_info,
                           structural_params=param_results)
