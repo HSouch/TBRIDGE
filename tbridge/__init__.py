@@ -1,5 +1,5 @@
-
-__version__ = "1.5.11"
+# TBriDGE - Testing Brightness Deviations in Galaxy Profile Extractions
+__version__ = "1.6.0"
 
 from .backgrounds import *
 from .binning import *
