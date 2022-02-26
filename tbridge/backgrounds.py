@@ -16,7 +16,27 @@ from photutils import Background2D, MedianBackground, BkgZoomInterpolator, make_
 
 def background_2D(img, mask, box_size, interp=None, filter_size=1,
                   exclude_percentile=90):
-    ''' Run photutils background with SigmaClip and MedianBackground'''
+    """
+    Generates a 2-dimensional background from Photutils with sigma clipping
+
+    Args:
+        img: input image cutout (2D-Array)
+        mask: Image mask. Typically generated using tbridge.backgrounds.SourceMask
+        box_size: the size of the box used when creating the background.
+            It is recommended to make the box larger than the objects in your images, while
+            small enough to capture local changes in background.
+    Keyword Args:
+        interp: Whether or not to use interpolation when constructing the background.
+            Default is None
+        filter_size: The size of the filter the background is convolved with.
+            Default is 1 (equivalent to OFF)
+        exclude_percentile: The percentile of pixels above which to ignore when calculating
+                            the background.
+            Default is 90
+
+    Returns:
+        photutils.Background2D object representing the background for the input cutout.
+    """
     if interp is None:
         interp = BkgZoomInterpolator()
     return Background2D(img, box_size,
@@ -206,9 +226,11 @@ def subtract_backgrounds(profile_set, background_array):
     """
     Generate an array of tables identical to the input except the respective backgrounds
     are subtracted from the intensity array for each table.
-    :param profile_set: Set of profiles (in the photutiuls isolist format)
-    :param background_array: Array of background values to subtract from each profile table.
-    :return: List of profiles of length len(profile_set)
+    Args:
+        profile_set: Set of profiles (in the photutiuls isolist format)
+        background_array: Array of background values to subtract from each profile table.
+    Returns:
+         List of profiles of length len(profile_set)
     """
     bg_subtracted_tables = []
 
