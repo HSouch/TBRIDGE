@@ -117,7 +117,7 @@ def simulate_sersic_models(mags, r50s, ns, ellips, config_values, n_models=10):
             this_ellip = ellips[obj_choice]
 
             # Get the intensity at the half-light radius.
-            i_r50 = i_at_r50(mag=this_mag, n=this_n, r_50=this_r50_pix)
+            i_r50 = i_at_r50(mag=this_mag, n=this_n, r_50=this_r50_pix, m_0=config_values["ZEROPOINT"])
             clean = not (i_r50 > 100) and not (isnan(i_r50)) and (this_n > 0.65) and (0 < this_ellip < 1) \
                     and (this_r50_pix > 0)
             if not clean:
