@@ -44,7 +44,6 @@ def mask_cutout(cutout, config=None, nsigma=1., gauss_width=2.0, npixels=11, omi
 
     bg_mask = make_source_mask(cutout, nsigma=2, npixels=3, dilate_size=7)
 
-
     bg_mean, bg_median, bg_std = sigma_clipped_stats(cutout, sigma=3.0, mask=bg_mask)
 
     # Generate source mask
